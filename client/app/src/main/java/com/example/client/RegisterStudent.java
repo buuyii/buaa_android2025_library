@@ -28,28 +28,50 @@ public class RegisterStudent extends AppCompatActivity {
         buttonCommit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (editAccount.getText().toString().equals("")) {
-                    Toast.makeText(RegisterStudent.this,"注册信息不能为空", Toast.LENGTH_SHORT).show();
-                } else {
-                    List<Student> studentsAccount = AppDataBase.getInstance(RegisterStudent.this).studentDao().getAll();
-                    boolean differ = true;
-                    for(int i=0; i< studentsAccount.size(); i++) {
-                        if (studentsAccount.get(i).account.equals(editAccount.getText().toString())) {
-                            Toast.makeText(RegisterStudent.this, "账号已存在", Toast.LENGTH_SHORT).show();
-                            differ = false;
+                // 准备资源
+                final String account = editAccount.getText().toString().trim();
+                final String password = editPassword1.getText().toString();
+                final String passwordConfirm = editPassword2.getText().toString();
+                final String name = editName.getText().toString().trim();
+                // 校验
+                if (account.isEmpty() || password.isEmpty() || name.isEmpty()) {
+                    Toast.makeText(RegisterStudent.this, "注册信息不能为空", Toast.LENGTH_SHORT).show();
+                    return; // 结束执行
+                }
+                if (!password.equals(passwordConfirm)) {
+                    Toast.makeText(RegisterStudent.this, "两次输入的密码不相同", Toast.LENGTH_SHORT).show();
+                    return; // 结束执行
+                }
+                AppDataBase.databaseWriteExecutor.execute(() -> {
+                    // 检查账号是否存在
+                    List<Student> existingStudents = AppDataBase.getInstance(getApplicationContext()).studentDao().getAll();
+                    boolean accountExists = false;
+                    for (Student s : existingStudents) {
+                        if (s.account.equals(account)) {
+                            accountExists = true;
                             break;
                         }
                     }
-                    if (editPassword1.getText().toString().equals(editPassword2.getText().toString())) {
-                        Student student = new Student(editAccount.getText().toString(), editPassword1.getText().toString(), editName.getText().toString(), "");
-                        AppDataBase.getInstance(RegisterStudent.this).studentDao().insertAll(student);
-                        Toast.makeText(RegisterStudent.this, "注册成功", Toast.LENGTH_SHORT).show();
-                        Intent intent = new Intent(RegisterStudent.this, MainActivity.class);
-                        startActivity(intent);
+                    if (accountExists) {
+                        // 如果账号存在，需要切换回主线程来显示Toast
+                        runOnUiThread(() -> {
+                            Toast.makeText(RegisterStudent.this, "该账号已被注册", Toast.LENGTH_SHORT).show();
+                        });
                     } else {
-                        Toast.makeText(RegisterStudent.this,"两次密码不相同",Toast.LENGTH_SHORT).show();
+                        // 账号不存在，可以进行注册
+                        Student newStudent = new Student(account, password, name, "");
+                        AppDataBase.getInstance(getApplicationContext()).studentDao().insertAll(newStudent);
+
+                        // 注册成功，切换回主线程来提示用户并跳转页面
+                        runOnUiThread(() -> {
+                            Toast.makeText(RegisterStudent.this, "注册成功", Toast.LENGTH_SHORT).show();
+                            Intent intent = new Intent(RegisterStudent.this, MainActivity.class);
+                            // 清除之前的Activity栈，使用户不能通过返回键回到注册页
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                        });
                     }
-                }
+                });
             }
         });
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
@@ -65,4 +87,5 @@ public class RegisterStudent extends AppCompatActivity {
         editPassword2 = findViewById(R.id.reg_st_pass2_id);
         editName = findViewById(R.id.reg_st_name_id);
     }
+
 }

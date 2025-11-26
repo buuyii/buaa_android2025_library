@@ -1,5 +1,6 @@
 package com.example.client;
 
+import androidx.annotation.NonNull;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 
@@ -14,5 +15,11 @@ public class TimeSlot {
     public TimeSlot(String startTime, String endTime) {
         this.startTime = startTime;
         this.endTime = endTime;
+    }
+
+    @NonNull
+    @Override
+    public String toString() {
+        return startTime + " - " + endTime;
     }
 }

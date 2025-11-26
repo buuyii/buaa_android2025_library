@@ -12,14 +12,20 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.fragment.app.Fragment;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 public class SeatReservationFragment extends Fragment {
+
+    private static final long CHECK_INTERVAL_MS = 60 * 1000; // 1 minute
+    private static final long NO_SHOW_GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes
 
     private TextView seatStatusText;
     private Spinner floorSpinner, seatSpinner, timeslotSpinner;
@@ -27,10 +33,11 @@ public class SeatReservationFragment extends Fragment {
     private View selectionLayout;
 
     private AppDataBase db;
-    private final int studentId = 1; // Hardcoded student ID for demonstration
+    private final int studentId = 1; // Hardcoded student ID
 
     private final Executor executor = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private Runnable seatCheckRunnable;
 
     public SeatReservationFragment() {}
 
@@ -47,6 +54,13 @@ public class SeatReservationFragment extends Fragment {
     public void onResume() {
         super.onResume();
         updateUIState();
+        startPeriodicChecks();
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        stopPeriodicChecks();
     }
 
     private void initializeViews(View view) {
@@ -59,7 +73,6 @@ public class SeatReservationFragment extends Fragment {
         checkinButton = view.findViewById(R.id.checkin_button);
         checkoutButton = view.findViewById(R.id.checkout_button);
         selectionLayout = view.findViewById(R.id.selection_layout);
-
         populateSpinners();
     }
 
@@ -69,7 +82,76 @@ public class SeatReservationFragment extends Fragment {
         checkinButton.setOnClickListener(v -> handleCheckIn());
         checkoutButton.setOnClickListener(v -> handleCheckOut());
     }
+    
+    // ... (populateSpinners, handleReservation, etc. remain the same) ...
 
+    private void startPeriodicChecks() {
+        seatCheckRunnable = () -> {
+            executor.execute(this::runSeatReleaseChecks);
+            handler.postDelayed(seatCheckRunnable, CHECK_INTERVAL_MS);
+        };
+        handler.post(seatCheckRunnable);
+    }
+
+    private void stopPeriodicChecks() {
+        handler.removeCallbacks(seatCheckRunnable);
+    }
+
+    private void runSeatReleaseChecks() {
+        Date now = new Date();
+        Date today = getStartOfDay(now);
+        
+        // 1. Check for no-shows
+        List<ReservationRecord> reservations = db.reservationRecordDao().getReservationsByDate(today);
+        for (ReservationRecord r : reservations) {
+            StudyRecord sr = db.studyRecordDao().findActiveStudyRecordByStudentAndSeat(r.studentId, r.seatId);
+            if (sr == null) { // Not checked in
+                TimeSlot ts = db.timeSlotDao().getTimeSlotById(r.timeSlotId);
+                Date deadline = getDateForTimeString(ts.startTime, today);
+                if (deadline != null && now.getTime() > deadline.getTime() + NO_SHOW_GRACE_PERIOD_MS) {
+                    db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
+                    // Seat was never 'occupied', so no status change needed
+                }
+            }
+        }
+
+        // 2. Check for overdue checkouts
+        List<StudyRecord> activeStudies = db.studyRecordDao().getAllActiveStudyRecords();
+        for (StudyRecord sr : activeStudies) {
+            ReservationRecord r = db.reservationRecordDao().findReservationByUserAndDate(sr.studentId, today);
+            if (r != null) {
+                TimeSlot ts = db.timeSlotDao().getTimeSlotById(r.timeSlotId);
+                Date endTime = getDateForTimeString(ts.endTime, today);
+                if (endTime != null && now.after(endTime)) {
+                    sr.endTime = endTime; // Set end time to the slot's end
+                    db.studyRecordDao().update(sr);
+                    db.seatDao().updateSeatStatus(sr.seatId, "available");
+                    db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
+                }
+            }
+        }
+        
+        // Refresh UI if the current user might be affected
+        handler.post(this::updateUIState);
+    }
+
+    // Helper to parse time string like "17:00" into a Date object for a specific day
+    private Date getDateForTimeString(String time, Date day) {
+        try {
+            String[] parts = time.split(":");
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(day);
+            cal.set(Calendar.HOUR_OF_DAY, Integer.parseInt(parts[0]));
+            cal.set(Calendar.MINUTE, Integer.parseInt(parts[1]));
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            return cal.getTime();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // ... (rest of the methods like updateUIState, handleReservation, handleCheckIn, etc.)
     private void populateSpinners() {
         // Floors
         ArrayAdapter<Integer> floorAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, getFloors());

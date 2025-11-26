@@ -15,4 +15,7 @@ public interface TimeSlotDao {
 
     @Query("DELETE FROM time_slots")
     void deleteAll();
+
+    @Query("SELECT * FROM time_slots WHERE id = :id LIMIT 1")
+    TimeSlot getTimeSlotById(int id);
 }

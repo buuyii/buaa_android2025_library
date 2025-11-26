@@ -4,6 +4,8 @@ import androidx.room.Dao;
 import androidx.room.Insert;
 import androidx.room.Query;
 import androidx.room.Update;
+import java.util.Date;
+import java.util.List;
 
 @Dao
 public interface StudyRecordDao {
@@ -18,4 +20,10 @@ public interface StudyRecordDao {
 
     @Query("SELECT * FROM study_records WHERE studentId = :studentId AND seatId = :seatId AND endTime IS NULL")
     StudyRecord findActiveStudyRecordByStudentAndSeat(int studentId, int seatId);
+
+    @Query("SELECT * FROM study_records WHERE endTime IS NULL")
+    List<StudyRecord> getAllActiveStudyRecords();
+
+    @Query("SELECT * FROM study_records WHERE startTime BETWEEN :startDate AND :endDate AND endTime IS NOT NULL")
+    List<StudyRecord> getStudyRecordsBetween(Date startDate, Date endDate);
 }

@@ -19,6 +19,10 @@ import android.widget.Toast;
 import com.alibaba.dashscope.exception.InputRequiredException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 
+import io.noties.markwon.Markwon;
+import io.noties.markwon.ext.strikethrough.StrikethroughPlugin;
+import io.noties.markwon.ext.tasklist.TaskListPlugin;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -36,6 +40,8 @@ public class AiFragment extends Fragment {
     // 使用Handler将结果传递回主线程
     private final Handler handler = new Handler(Looper.getMainLooper());
 
+    private Markwon markwon;
+
     public AiFragment() {
         // Required empty public constructor
     }
@@ -43,6 +49,11 @@ public class AiFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        markwon = Markwon.builder(requireContext())
+                .usePlugin(StrikethroughPlugin.create()) // 启用删除线插件
+                .usePlugin(TaskListPlugin.create(requireContext())) // 启用任务列表插件
+                .build();
     }
 
     @Override
@@ -60,6 +71,8 @@ public class AiFragment extends Fragment {
         promptEditText = view.findViewById(R.id.promptEditText);
         sendButton = view.findViewById(R.id.sendButton);
         chatResponseTextView = view.findViewById(R.id.chatResponseTextView);
+
+        markwon.setMarkdown(chatResponseTextView, "你好，有什么可以帮助你的吗？");
 
         // 设置发送按钮的点击事件
         sendButton.setOnClickListener(v -> {
@@ -102,12 +115,35 @@ public class AiFragment extends Fragment {
                 // 在主线程中更新UI
                 String finalAiResponse = aiResponse;
                 handler.post(() -> {
-                    String updatedChat = chatResponseTextView.getText().toString();
-                    chatResponseTextView.setText(updatedChat + "\n\nAI: " + finalAiResponse);
-                    // 重新启用按钮
+                    // 5. 使用Markwon来渲染AI的回复
+                    updateChat("AI: " + finalAiResponse, true);
                     sendButton.setEnabled(true);
                 });
             });
         });
+    }
+
+    private void updateChat(String message, boolean isMarkdown) {
+        // 获取当前TextView已有的内容 (Spanned)
+        CharSequence currentContent = chatResponseTextView.getText();
+
+        // 准备新的内容
+        CharSequence newMessage;
+        if (isMarkdown) {
+            // 如果是Markdown，使用Markwon来解析
+            newMessage = markwon.toMarkdown(message);
+        } else {
+            // 如果不是，就是普通文本
+            newMessage = message;
+        }
+
+        // 检查是否是初始状态，如果是，直接替换
+        if (currentContent.toString().equals("你好，有什么可以帮助你的吗？") || currentContent.length() == 0) {
+            chatResponseTextView.setText(newMessage);
+        } else {
+            // 如果不是，追加新内容，并用换行符隔开
+            chatResponseTextView.append("\n\n");
+            chatResponseTextView.append(newMessage);
+        }
     }
 }

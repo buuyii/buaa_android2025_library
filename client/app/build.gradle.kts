@@ -75,4 +75,12 @@ dependencies {
         name = "dashscope-sdk-java",
         version = "2.22.2"
     )
+
+    val markwonVersion = "4.6.2" // 这是一个稳定版本
+    implementation("io.noties.markwon:core:$markwonVersion")
+    implementation("io.noties.markwon:editor:$markwonVersion") // 支持在EditText中显示
+    implementation("io.noties.markwon:ext-strikethrough:$markwonVersion") // 支持删除线
+    implementation("io.noties.markwon:ext-tasklist:$markwonVersion") // 支持任务列表
+    implementation("io.noties.markwon:html:$markwonVersion") // 支持HTML标签
+
 }

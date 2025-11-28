@@ -2,6 +2,8 @@ package com.example.client;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.View;
 import android.widget.GridLayout;
 import android.widget.TextView;
@@ -16,12 +18,14 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+
 public class GraphicalSeatSelectionActivity extends AppCompatActivity {
 
     private GridLayout seatGridLayout;
     private TextView floorTitleText;
     private AppDataBase db;
     private final Executor executor = Executors.newSingleThreadExecutor();
+    private final Handler handler = new Handler(Looper.getMainLooper());
 
     private int selectedFloor;
 
@@ -38,16 +42,19 @@ public class GraphicalSeatSelectionActivity extends AppCompatActivity {
         selectedFloor = getIntent().getIntExtra("FLOOR_NUMBER", 1); // 默认第一层
 
         floorTitleText.setText(String.format("楼层 %d - 座位图", selectedFloor));
-        loadAndDisplaySeats();
+        seatGridLayout.post(this::loadAndDisplaySeats);
     }
 
     private void loadAndDisplaySeats() {
         executor.execute(() -> {
             List<Seat> seats = db.seatDao().getSeatsByFloor(selectedFloor);
-            runOnUiThread(() -> {
-                seatGridLayout.removeAllViews();
-                for (Seat seat : seats) {
-                    seatGridLayout.addView(createSeatButton(seat));
+            handler.post(() -> {
+
+                if (!isFinishing() && !isDestroyed()) {
+                    seatGridLayout.removeAllViews();
+                    for (Seat seat : seats) {
+                        seatGridLayout.addView(createSeatButton(seat));
+                    }
                 }
             });
         });
@@ -74,8 +81,15 @@ public class GraphicalSeatSelectionActivity extends AppCompatActivity {
         }
 
         GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+
+        // 将DP单位转换为像素(PX)，以保证在不同密度的屏幕上大小一致
+        final int sizeInPixels = (int) (50 * getResources().getDisplayMetrics().density); // 50dp
+
+        params.width = sizeInPixels;
+        params.height = sizeInPixels;
         params.setMargins(8, 8, 8, 8);
         seatButton.setLayoutParams(params);
+
         return seatButton;
     }
 

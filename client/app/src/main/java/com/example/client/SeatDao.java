@@ -21,4 +21,8 @@ public interface SeatDao {
 
     @Query("SELECT * FROM seats WHERE floor = :floor AND seatNumber = :number LIMIT 1")
     Seat findSeatByFloorAndNumber(int floor, int number);
+
+    @Query("SELECT * FROM seats WHERE floor = :selectedFloor")
+    List<Seat> getSeatsByFloor(int selectedFloor);
+
 }

@@ -1,5 +1,7 @@
 package com.example.client;
 
+import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -11,6 +13,10 @@ import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -37,6 +43,9 @@ public class SeatReservationFragment extends Fragment {
 
     private final Executor executor = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private ActivityResultLauncher<Intent> graphicalSeatLauncher;
+    private Button graphicalSelectButton;
     private Runnable seatCheckRunnable;
 
     public SeatReservationFragment() {}
@@ -50,6 +59,25 @@ public class SeatReservationFragment extends Fragment {
         return view;
     }
 
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // 2. 注册一个回调来处理Activity返回的结果
+        graphicalSeatLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    // 当GraphicalSeatSelectionActivity关闭后，这里会被调用
+                    if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
+                        Intent data = result.getData();
+                        int seatNumber = data.getIntExtra("SELECTED_SEAT_NUMBER", -1);
+                        if (seatNumber != -1) {
+                            // 更新UI
+                            updateSpinnerSelection(seatSpinner, seatNumber);
+                        }
+                    }
+                });
+    }
     @Override
     public void onResume() {
         super.onResume();
@@ -73,6 +101,8 @@ public class SeatReservationFragment extends Fragment {
         checkinButton = view.findViewById(R.id.checkin_button);
         checkoutButton = view.findViewById(R.id.checkout_button);
         selectionLayout = view.findViewById(R.id.selection_layout);
+        graphicalSelectButton = view.findViewById(R.id.graphical_select_button);
+
         populateSpinners();
     }
 
@@ -81,6 +111,7 @@ public class SeatReservationFragment extends Fragment {
         cancelButton.setOnClickListener(v -> handleCancellation());
         checkinButton.setOnClickListener(v -> handleCheckIn());
         checkoutButton.setOnClickListener(v -> handleCheckOut());
+        graphicalSelectButton.setOnClickListener(v -> navigateToGraphicalActivity());
     }
     
     // ... (populateSpinners, handleReservation, etc. remain the same) ...
@@ -213,6 +244,12 @@ public class SeatReservationFragment extends Fragment {
     }
 
     private void handleReservation() {
+
+        if (floorSpinner.getSelectedItem() == null || seatSpinner.getSelectedItem() == null || timeslotSpinner.getSelectedItem() == null) {
+            Toast.makeText(getContext(), "请完成所有选择", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         TimeSlot selectedTimeSlot = (TimeSlot) timeslotSpinner.getSelectedItem();
         int selectedSeatNum = (int) seatSpinner.getSelectedItem();
         int selectedFloor = (int) floorSpinner.getSelectedItem();
@@ -325,4 +362,30 @@ public class SeatReservationFragment extends Fragment {
         calendar.set(Calendar.MILLISECOND, 0);
         return calendar.getTime();
     }
+
+    private void navigateToGraphicalActivity() {
+        if (floorSpinner.getSelectedItem() == null) {
+            Toast.makeText(getContext(), "请先选择楼层", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        int floor = (int) floorSpinner.getSelectedItem();
+
+        // 3. 创建Intent并启动Activity
+        Intent intent = new Intent(getActivity(), GraphicalSeatSelectionActivity.class);
+        intent.putExtra("FLOOR_NUMBER", floor); // 传递楼层号
+
+        graphicalSeatLauncher.launch(intent); // 使用launcher启动
+    }
+    private void updateSpinnerSelection(Spinner spinner, int value) {
+        ArrayAdapter<Integer> adapter = (ArrayAdapter<Integer>) spinner.getAdapter();
+        if (adapter != null) {
+            for (int i = 0; i < adapter.getCount(); i++) {
+                if (adapter.getItem(i) == value) {
+                    spinner.setSelection(i);
+                    break;
+                }
+            }
+        }
+    }
+
 }

@@ -47,6 +47,20 @@
             android:id="@+id/timeslot_spinner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- 触发跳转的按钮 -->
+            <Button
+                android:id="@+id/graphical_select_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="图形选择" />
+        </LinearLayout>
     </LinearLayout>
 
     <Button

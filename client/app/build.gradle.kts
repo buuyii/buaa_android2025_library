@@ -69,4 +69,10 @@ dependencies {
 
     implementation("androidx.room:room-runtime:$room_version")
     ksp("androidx.room:room-compiler:$room_version")
+
+    implementation(
+        group = "com.alibaba",
+        name = "dashscope-sdk-java",
+        version = "2.22.2"
+    )
 }

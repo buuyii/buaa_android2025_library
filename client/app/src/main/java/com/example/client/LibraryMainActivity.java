@@ -27,6 +27,8 @@ public class LibraryMainActivity extends AppCompatActivity {
                 selectedFragment = new SeatReservationFragment();
             } else if (itemId == R.id.nav_stats) {
                 selectedFragment = new StudyStatsFragment();
+            } else if (itemId == R.id.nav_ai) {
+                selectedFragment = new AiFragment();
             }
 
             if (selectedFragment != null) {

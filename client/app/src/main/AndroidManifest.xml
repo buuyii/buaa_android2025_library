@@ -34,4 +34,6 @@
             android:exported="false" />
     </application>
 
+    <uses-permission android:name="android.permission.INTERNET"
+        tools:ignore="ManifestOrder" />
 </manifest>

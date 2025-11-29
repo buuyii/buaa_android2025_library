@@ -3,12 +3,22 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:background="@drawable/background_lib_main"
     android:padding="16dp">
 
+    <ImageView
+        android:id="@+id/myImageView"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:src="@drawable/buaa_logo"
+        android:layout_centerInParent="true"
+        />
     <TextView
+        android:layout_marginTop="20dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="图书检索"
+        android:background="#FFEFD5"
         android:textSize="24sp"
         android:textStyle="bold"
         android:gravity="center"

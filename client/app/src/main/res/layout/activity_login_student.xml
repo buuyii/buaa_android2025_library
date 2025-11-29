@@ -4,11 +4,18 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="500dp"
     android:orientation="vertical"
     android:padding="24dp"
+    android:background="@drawable/background_login_student"
     tools:context=".LoginStudent">
-
+    <ImageView
+        android:id="@+id/myImageView"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:src="@drawable/buaa_logo"
+        android:layout_centerInParent="true"
+        />
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -16,6 +23,7 @@
         android:layout_marginTop="60dp"
         android:layout_marginBottom="40dp"
         android:text="学生登录"
+        android:textColor="@color/black"
         android:textSize="24sp"
         android:textStyle="bold" />
 
@@ -62,6 +70,7 @@
         android:layout_gravity="center"
         android:padding="8dp"
         android:text="还没有账号？点击注册"
+        android:textSize="16dp"
         android:textColor="@color/design_default_color_primary" />
 
 </LinearLayout>

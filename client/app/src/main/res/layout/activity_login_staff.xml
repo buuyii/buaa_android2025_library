@@ -7,8 +7,16 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="24dp"
+    android:background="@drawable/background_login_staff"
     tools:context=".LoginStaff">
 
+    <ImageView
+        android:id="@+id/myImageView"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:src="@drawable/buaa_logo"
+        android:layout_centerInParent="true"
+        />
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -16,6 +24,7 @@
         android:layout_marginTop="60dp"
         android:layout_marginBottom="40dp"
         android:text="工作人员登录"
+        android:background="#FFEFD5"
         android:textSize="24sp"
         android:textStyle="bold" />
 

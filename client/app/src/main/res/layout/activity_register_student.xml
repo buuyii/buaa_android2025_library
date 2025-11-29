@@ -6,9 +6,11 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:background="@drawable/register"
     tools:context=".RegisterStudent">
     <LinearLayout
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="50dp"
+        android:layout_marginLeft="10dp"
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -17,7 +19,8 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:text="账号 ："
-            android:textSize="21sp"/>
+            android:background="#FFEFD5"
+            android:textSize="31sp"/>
         <EditText
             android:id="@+id/reg_st_acc_id"
             android:layout_width="0dp"
@@ -27,6 +30,8 @@
             android:layout_weight="3"/>
     </LinearLayout>
     <LinearLayout
+        android:layout_marginTop="20dp"
+        android:layout_marginLeft="10dp"
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -34,8 +39,10 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="输入密码"
-            android:textSize="18sp"/>
+            android:background="#FFEFD5"
+            android:gravity="center"
+            android:text="输入密码:"
+            android:textSize="22sp"/>
         <EditText
             android:id="@+id/reg_st_pass1_id"
             android:layout_width="0dp"
@@ -45,6 +52,8 @@
             android:layout_weight="3"/>
     </LinearLayout>
     <LinearLayout
+        android:layout_marginTop="20dp"
+        android:layout_marginLeft="10dp"
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -52,7 +61,9 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="再输入密码"
+            android:background="#FFEFD5"
+            android:gravity="center"
+            android:text="再输入密码:"
             android:textSize="18sp"/>
         <EditText
             android:id="@+id/reg_st_pass2_id"
@@ -63,6 +74,8 @@
             android:layout_weight="3"/>
     </LinearLayout>
     <LinearLayout
+        android:layout_marginTop="20dp"
+        android:layout_marginLeft="10dp"
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -70,8 +83,10 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:background="#FFEFD5"
+            android:gravity="center"
             android:text="姓名 ："
-            android:textSize="21sp"/>
+            android:textSize="28sp"/>
         <EditText
             android:id="@+id/reg_st_name_id"
             android:layout_width="0dp"
@@ -79,6 +94,8 @@
             android:layout_weight="3"/>
     </LinearLayout>
     <LinearLayout
+        android:layout_marginTop="20dp"
+        android:layout_marginLeft="10dp"
         android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -86,8 +103,10 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
+            android:background="#FFEFD5"
+            android:gravity="center"
             android:text="学号 ："
-            android:textSize="21sp"/>
+            android:textSize="28sp"/>
         <EditText
             android:id="@+id/reg_st_ID_id"
             android:inputType="number"
@@ -97,6 +116,7 @@
             android:layout_weight="3"/>
     </LinearLayout>
     <Button
+        android:layout_marginTop="30dp"
         android:id="@+id/reg_st_commit_id"
         android:layout_width="150dp"
         android:layout_height="wrap_content"

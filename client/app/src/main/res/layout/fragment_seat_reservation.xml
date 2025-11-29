@@ -5,8 +5,16 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="16dp"
+    android:background="@drawable/background_seat"
     tools:context=".SeatReservationFragment">
 
+    <ImageView
+        android:id="@+id/myImageView"
+        android:layout_width="match_parent"
+        android:layout_height="90dp"
+        android:src="@drawable/mini_logo"
+        android:layout_centerInParent="true"
+        />
     <TextView
         android:id="@+id/seat_status"
         android:layout_width="wrap_content"

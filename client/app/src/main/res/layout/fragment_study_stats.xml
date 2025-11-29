@@ -3,8 +3,16 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:background="@drawable/background_study_stats"
     android:padding="16dp">
 
+    <ImageView
+        android:id="@+id/myImageView"
+        android:layout_width="match_parent"
+        android:layout_height="90dp"
+        android:src="@drawable/mini_logo"
+        android:layout_centerInParent="true"
+        />
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

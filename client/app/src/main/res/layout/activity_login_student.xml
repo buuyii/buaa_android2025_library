@@ -4,39 +4,43 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
-    android:layout_height="500dp"
+    android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="24dp"
-    android:background="@drawable/background_login_student"
+    android:background="@color/white"
     tools:context=".LoginStudent">
+
     <ImageView
-        android:id="@+id/myImageView"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:src="@drawable/buaa_logo"
-        android:layout_centerInParent="true"
-        />
+        android:id="@+id/logo"
+        android:layout_width="79dp"
+        android:layout_height="80dp"
+        android:layout_gravity="center"
+        android:layout_marginTop="40dp"
+        android:layout_marginBottom="20dp"
+        android:src="@drawable/buaa_logo" />
+
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:layout_marginTop="60dp"
-        android:layout_marginBottom="40dp"
+        android:layout_marginBottom="30dp"
         android:text="学生登录"
         android:textColor="@color/black"
-        android:textSize="24sp"
+        android:textSize="28sp"
         android:textStyle="bold" />
 
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:hint="账号">
+        android:hint="学号"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/login_student_account"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:inputType="number" />
 
     </com.google.android.material.textfield.TextInputLayout>
 
@@ -45,7 +49,8 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="24dp"
         android:hint="密码"
-        app:endIconMode="password_toggle">
+        app:endIconMode="password_toggle"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/login_student_password"
@@ -58,19 +63,21 @@
     <Button
         android:id="@+id/login_student_button"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="60dp"
         android:layout_marginBottom="16dp"
         android:text="登录"
-        android:textSize="16sp" />
+        android:textSize="18sp"
+        android:textStyle="bold"
+        style="@style/Widget.MaterialComponents.Button" />
 
     <TextView
         android:id="@+id/goto_register"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:padding="8dp"
+        android:padding="12dp"
         android:text="还没有账号？点击注册"
-        android:textSize="16dp"
+        android:textSize="16sp"
         android:textColor="@color/design_default_color_primary" />
 
 </LinearLayout>

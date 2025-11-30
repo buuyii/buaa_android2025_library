@@ -15,8 +15,7 @@ public class StatisticsChartView extends View {
     private ChartType chartType = ChartType.BAR_CHART;
     
     public enum ChartType {
-        BAR_CHART,
-        PIE_CHART
+        BAR_CHART
     }
     
     public static class ChartData {
@@ -66,15 +65,18 @@ public class StatisticsChartView extends View {
         super.onDraw(canvas);
         
         if (chartDataList == null || chartDataList.isEmpty()) {
+            // Draw empty state
+            paint.setTextSize(40);
+            paint.setColor(Color.GRAY);
+            paint.setTextAlign(Paint.Align.CENTER);
+            canvas.drawText("暂无数据", getWidth() / 2f, getHeight() / 2f, paint);
+            paint.setTextAlign(Paint.Align.LEFT);
             return;
         }
         
         switch (chartType) {
             case BAR_CHART:
                 drawBarChart(canvas);
-                break;
-            case PIE_CHART:
-                drawPieChart(canvas);
                 break;
         }
     }
@@ -84,8 +86,8 @@ public class StatisticsChartView extends View {
         
         int width = getWidth();
         int height = getHeight();
-        int padding = 50;
-        int barWidth = (width - 2 * padding) / chartDataList.size() - 20;
+        int padding = 80;
+        int barWidth = (width - 2 * padding) / chartDataList.size() - 30;
         
         // Find max value for scaling
         float maxValue = 0;
@@ -100,9 +102,17 @@ public class StatisticsChartView extends View {
             maxValue = 1.0f;
         }
         
+        // Draw axes
+        paint.setColor(Color.GRAY);
+        paint.setStrokeWidth(2);
+        // Y axis
+        canvas.drawLine(padding, padding, padding, height - padding, paint);
+        // X axis
+        canvas.drawLine(padding, height - padding, width - padding, height - padding, paint);
+        
         // Draw bars
         paint.setTextSize(30);
-        paint.setColor(Color.BLACK);
+        paint.setTextAlign(Paint.Align.CENTER);
         
         for (int i = 0; i < chartDataList.size(); i++) {
             ChartData data = chartDataList.get(i);
@@ -113,96 +123,36 @@ public class StatisticsChartView extends View {
             // Draw bar
             paint.setColor(data.color);
             RectF rect = new RectF(
-                padding + i * (barWidth + 20),
+                padding + i * (barWidth + 30) + 15,
                 height - padding - barHeight,
-                padding + i * (barWidth + 20) + barWidth,
+                padding + i * (barWidth + 30) + barWidth + 15,
                 height - padding
             );
             canvas.drawRect(rect, paint);
             
             // Draw value on top of bar
             paint.setColor(Color.BLACK);
-            String valueText = String.format("%.1f", data.value);
-            float valueTextWidth = paint.measureText(valueText);
+            String valueText = String.format("%.1fH", data.value);
             canvas.drawText(
                 valueText,
-                rect.left + (barWidth - valueTextWidth) / 2,
-                rect.top - 10,
+                rect.centerX(),
+                rect.top - 20,
                 paint
             );
             
             // Draw label
-            float labelWidth = paint.measureText(data.label);
+            canvas.save();
+            canvas.rotate(-45, rect.centerX(), height - padding + 30);
+            paint.setColor(Color.BLACK);
             canvas.drawText(
                 data.label,
-                rect.left + (barWidth - labelWidth) / 2,
-                height - padding + 40,
+                rect.centerX(),
+                height - padding + 30,
                 paint
             );
-        }
-    }
-    
-    private void drawPieChart(Canvas canvas) {
-        if (chartDataList.isEmpty()) return;
-        
-        int width = getWidth();
-        int height = getHeight();
-        float centerX = width / 2f;
-        float centerY = height / 2f;
-        float radius = Math.min(width, height) / 3f;
-        
-        // Calculate total value
-        float totalValue = 0;
-        for (ChartData data : chartDataList) {
-            totalValue += data.value;
+            canvas.restore();
         }
         
-        // 如果总值为0，设置默认值以便仍能显示图表
-        if (totalValue == 0) {
-            totalValue = 1.0f;
-        }
-        
-        // Draw pie slices
-        float startAngle = 0;
-        paint.setTextSize(30);
-        
-        for (int i = 0; i < chartDataList.size(); i++) {
-            ChartData data = chartDataList.get(i);
-            
-            // Calculate sweep angle
-            float sweepAngle = (data.value / totalValue) * 360;
-            
-            // Draw slice
-            paint.setColor(data.color);
-            canvas.drawArc(
-                centerX - radius, 
-                centerY - radius, 
-                centerX + radius, 
-                centerY + radius, 
-                startAngle, 
-                sweepAngle, 
-                true, 
-                paint
-            );
-            
-            // Draw label
-            paint.setColor(Color.BLACK);
-            float labelAngle = startAngle + sweepAngle / 2;
-            float labelX = (float) (centerX + (radius * 1.2) * Math.cos(Math.toRadians(labelAngle)));
-            float labelY = (float) (centerY + (radius * 1.2) * Math.sin(Math.toRadians(labelAngle)));
-            
-            String labelText = String.format("%s\n%.1fH", data.label, data.value);
-            String[] lines = labelText.split("\n");
-            
-            float lineHeight = paint.descent() - paint.ascent();
-            float startY = labelY - (lines.length - 1) * lineHeight / 2;
-            
-            for (int j = 0; j < lines.length; j++) {
-                float lineWidth = paint.measureText(lines[j]);
-                canvas.drawText(lines[j], labelX - lineWidth / 2, startY + j * lineHeight, paint);
-            }
-            
-            startAngle += sweepAngle;
-        }
+        paint.setTextAlign(Paint.Align.LEFT);
     }
 }

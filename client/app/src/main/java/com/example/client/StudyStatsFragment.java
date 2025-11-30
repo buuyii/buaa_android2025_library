@@ -214,13 +214,13 @@ public class StudyStatsFragment extends Fragment {
             List<StatisticsChartView.ChartData> weeklyChartData = new ArrayList<>();
             String[] weekdays = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
             int[] colors = {
-                Color.parseColor("#FF9800"), // 橙色
-                Color.parseColor("#2196F3"), // 蓝色
-                Color.parseColor("#E91E63"), // 粉色
-                Color.parseColor("#9C27B0"), // 紫色
-                Color.parseColor("#00BCD4"), // 青色
-                Color.parseColor("#FFC107"), // 琥珀色
-                Color.parseColor("#795548")  // 棕色
+                Color.parseColor("#2196F3"), // 普蓝色
+                Color.parseColor("#2196F3"), // 普蓝色
+                Color.parseColor("#2196F3"), // 普蓝色
+                Color.parseColor("#2196F3"), // 普蓝色
+                Color.parseColor("#2196F3"), // 普蓝色
+                Color.parseColor("#2196F3"), // 普蓝色
+                Color.parseColor("#2196F3")  // 普蓝色
             };
             
             for (int i = 0; i < 7; i++) {
@@ -257,7 +257,7 @@ public class StudyStatsFragment extends Fragment {
             // 更新周报信息
             weeklyTotalTimeText.setText(String.format("本周总学习时长: %.1f 小时", weeklyTotalHours));
             
-            // 设置图表数据（仅周报图表）
+            // 设置图表数据（仅周报图表），固定使用柱状图
             weeklyChart.setChartData(weeklyChartData);
             weeklyChart.setChartType(StatisticsChartView.ChartType.BAR_CHART);
         });

@@ -45,13 +45,4 @@
         android:text="工作人员登录"
         android:textSize="16sp" />
 
-    <Button
-        android:id="@+id/register_student_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="注册学生账号"
-        android:textSize="16sp" />
-
-
-
 </LinearLayout>

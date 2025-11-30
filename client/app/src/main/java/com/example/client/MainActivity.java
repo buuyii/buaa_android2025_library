@@ -17,7 +17,6 @@ import androidx.core.view.WindowInsetsCompat;
 public class MainActivity extends AppCompatActivity {
     private Button studentLoginButton;
     private Button staffLoginButton;
-    private Button registerStudentButton;
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -61,7 +60,6 @@ public class MainActivity extends AppCompatActivity {
     private void initViews() {
         studentLoginButton = findViewById(R.id.student_login_button);
         staffLoginButton = findViewById(R.id.staff_login_button);
-        registerStudentButton = findViewById(R.id.register_student_button);
     }
 
     private void setListeners() {
@@ -77,14 +75,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(MainActivity.this, LoginStaff.class);
-                startActivity(intent);
-            }
-        });
-
-        registerStudentButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, RegisterStudent.class);
                 startActivity(intent);
             }
         });

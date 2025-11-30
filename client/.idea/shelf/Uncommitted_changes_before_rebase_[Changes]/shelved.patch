@@ -1,0 +1,77 @@
+Index: app/src/main/res/layout/fragment_ai.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/res/layout/fragment_ai.xml b/app/src/main/res/layout/fragment_ai.xml
+new file mode 100644
+--- /dev/null	(date 1764490987627)
++++ b/app/src/main/res/layout/fragment_ai.xml	(date 1764490987627)
+@@ -0,0 +1,66 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    xmlns:tools="http://schemas.android.com/tools"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:orientation="vertical"
++    android:padding="16dp"
++    tools:context=".AiFragment">
++
++    <ImageView
++        android:id="@+id/myImageView"
++        android:layout_width="match_parent"
++        android:layout_height="90dp"
++        android:src="@drawable/mini_logo"
++        android:layout_centerInParent="true"
++        />
++    <!-- 用于显示对话内容的滚动视图 -->
++    <ScrollView
++        android:id="@+id/scrollView"
++        android:layout_width="match_parent"
++        android:layout_height="300dp"
++        android:layout_marginBottom="16dp"
++        app:layout_constraintBottom_toTopOf="@+id/inputLayout"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintStart_toStartOf="parent"
++        app:layout_constraintTop_toTopOf="parent">
++
++        <TextView
++            android:id="@+id/chatResponseTextView"
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:text="你好，有什么可以帮助你的吗？"
++            android:textSize="16sp" />
++    </ScrollView>
++
++    <!-- 输入区域的水平线性布局 -->
++    <LinearLayout
++        android:id="@+id/inputLayout"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="vertical"
++        app:layout_constraintBottom_toBottomOf="parent"
++        app:layout_constraintEnd_toEndOf="parent"
++        app:layout_constraintStart_toStartOf="parent">
++
++        <EditText
++            android:id="@+id/promptEditText"
++            android:layout_width="match_parent"
++            android:layout_height="200dp"
++            android:layout_weight="1"
++            android:hint="在此输入你的问题..."
++            android:inputType="text" />
++
++        <Button
++            android:id="@+id/sendButton"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:text="发送" />
++
++
++    </LinearLayout>
++
++
++
++</LinearLayout>
+\ No newline at end of file

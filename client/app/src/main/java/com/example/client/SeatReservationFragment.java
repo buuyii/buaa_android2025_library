@@ -146,7 +146,7 @@ public class SeatReservationFragment extends Fragment {
             }
         }
 
-        // 2. Check for overdue checkouts
+        // 2. Check for overdue checkouts for reservations
         List<StudyRecord> activeStudies = db.studyRecordDao().getAllActiveStudyRecords();
         for (StudyRecord sr : activeStudies) {
             ReservationRecord r = db.reservationRecordDao().findReservationByUserAndDate(sr.studentId, today);
@@ -158,6 +158,16 @@ public class SeatReservationFragment extends Fragment {
                     db.studyRecordDao().update(sr);
                     db.seatDao().updateSeatStatus(sr.seatId, "available");
                     db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
+                }
+            } else {
+                // Handle walk-in users who have no reservation
+                // Auto-checkout at midnight
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(now);
+                if (cal.get(Calendar.HOUR_OF_DAY) == 23 && cal.get(Calendar.MINUTE) >= 59) {
+                    sr.endTime = now;
+                    db.studyRecordDao().update(sr);
+                    db.seatDao().updateSeatStatus(sr.seatId, "available");
                 }
             }
         }

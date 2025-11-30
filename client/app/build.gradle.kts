@@ -42,7 +42,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -55,6 +54,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.cardview)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -62,25 +62,25 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-}
-dependencies {
+
+    // Room database
     implementation(libs.androidx.room.common.jvm)
     val room_version = "2.6.1"
-
     implementation("androidx.room:room-runtime:$room_version")
     ksp("androidx.room:room-compiler:$room_version")
 
+    // DashScope SDK
     implementation(
         group = "com.alibaba",
         name = "dashscope-sdk-java",
         version = "2.22.2"
     )
 
-    val markwonVersion = "4.6.2" // 这是一个稳定版本
+    // Markwon (Markdown support)
+    val markwonVersion = "4.6.2"
     implementation("io.noties.markwon:core:$markwonVersion")
-    implementation("io.noties.markwon:editor:$markwonVersion") // 支持在EditText中显示
-    implementation("io.noties.markwon:ext-strikethrough:$markwonVersion") // 支持删除线
-    implementation("io.noties.markwon:ext-tasklist:$markwonVersion") // 支持任务列表
-    implementation("io.noties.markwon:html:$markwonVersion") // 支持HTML标签
-
+    implementation("io.noties.markwon:editor:$markwonVersion")
+    implementation("io.noties.markwon:ext-strikethrough:$markwonVersion")
+    implementation("io.noties.markwon:ext-tasklist:$markwonVersion")
+    implementation("io.noties.markwon:html:$markwonVersion")
 }

@@ -1,0 +1,1154 @@
+Index: app/src/main/java/com/example/client/SeatReservationFragment.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.client;\r\n\r\nimport android.os.Bundle;\r\nimport android.os.Handler;\r\nimport android.os.Looper;\r\nimport android.view.LayoutInflater;\r\nimport android.view.View;\r\nimport android.view.ViewGroup;\r\nimport android.widget.ArrayAdapter;\r\nimport android.widget.Button;\r\nimport android.widget.Spinner;\r\nimport android.widget.TextView;\r\nimport android.widget.Toast;\r\nimport androidx.fragment.app.Fragment;\r\nimport java.text.ParseException;\r\nimport java.text.SimpleDateFormat;\r\nimport java.util.ArrayList;\r\nimport java.util.Calendar;\r\nimport java.util.Date;\r\nimport java.util.List;\r\nimport java.util.Locale;\r\nimport java.util.concurrent.Executor;\r\nimport java.util.concurrent.Executors;\r\n\r\npublic class SeatReservationFragment extends Fragment {\r\n\r\n    private static final long CHECK_INTERVAL_MS = 60 * 1000; // 1 minute\r\n    private static final long NO_SHOW_GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes\r\n\r\n    private TextView seatStatusText;\r\n    private Spinner floorSpinner, seatSpinner, timeslotSpinner;\r\n    private Button reserveButton, cancelButton, checkinButton, checkoutButton;\r\n    private View selectionLayout;\r\n\r\n    private AppDataBase db;\r\n    private final int studentId = 1; // Hardcoded student ID\r\n\r\n    private final Executor executor = Executors.newSingleThreadExecutor();\r\n    private final Handler handler = new Handler(Looper.getMainLooper());\r\n    private Runnable seatCheckRunnable;\r\n\r\n    public SeatReservationFragment() {}\r\n\r\n    @Override\r\n    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {\r\n        View view = inflater.inflate(R.layout.fragment_seat_reservation, container, false);\r\n        db = AppDataBase.getInstance(getContext());\r\n        initializeViews(view);\r\n        setupListeners();\r\n        return view;\r\n    }\r\n\r\n    @Override\r\n    public void onResume() {\r\n        super.onResume();\r\n        updateUIState();\r\n        startPeriodicChecks();\r\n    }\r\n\r\n    @Override\r\n    public void onPause() {\r\n        super.onPause();\r\n        stopPeriodicChecks();\r\n    }\r\n\r\n    private void initializeViews(View view) {\r\n        seatStatusText = view.findViewById(R.id.seat_status);\r\n        floorSpinner = view.findViewById(R.id.floor_spinner);\r\n        seatSpinner = view.findViewById(R.id.seat_spinner);\r\n        timeslotSpinner = view.findViewById(R.id.timeslot_spinner);\r\n        reserveButton = view.findViewById(R.id.reserve_button);\r\n        cancelButton = view.findViewById(R.id.cancel_button);\r\n        checkinButton = view.findViewById(R.id.checkin_button);\r\n        checkoutButton = view.findViewById(R.id.checkout_button);\r\n        selectionLayout = view.findViewById(R.id.selection_layout);\r\n        populateSpinners();\r\n    }\r\n\r\n    private void setupListeners() {\r\n        reserveButton.setOnClickListener(v -> handleReservation());\r\n        cancelButton.setOnClickListener(v -> handleCancellation());\r\n        checkinButton.setOnClickListener(v -> handleCheckIn());\r\n        checkoutButton.setOnClickListener(v -> handleCheckOut());\r\n    }\r\n    \r\n    // ... (populateSpinners, handleReservation, etc. remain the same) ...\r\n\r\n    private void startPeriodicChecks() {\r\n        seatCheckRunnable = () -> {\r\n            executor.execute(this::runSeatReleaseChecks);\r\n            handler.postDelayed(seatCheckRunnable, CHECK_INTERVAL_MS);\r\n        };\r\n        handler.post(seatCheckRunnable);\r\n    }\r\n\r\n    private void stopPeriodicChecks() {\r\n        handler.removeCallbacks(seatCheckRunnable);\r\n    }\r\n\r\n    private void runSeatReleaseChecks() {\r\n        Date now = new Date();\r\n        Date today = getStartOfDay(now);\r\n        \r\n        // 1. Check for no-shows\r\n        List<ReservationRecord> reservations = db.reservationRecordDao().getReservationsByDate(today);\r\n        for (ReservationRecord r : reservations) {\r\n            StudyRecord sr = db.studyRecordDao().findActiveStudyRecordByStudentAndSeat(r.studentId, r.seatId);\r\n            if (sr == null) { // Not checked in\r\n                TimeSlot ts = db.timeSlotDao().getTimeSlotById(r.timeSlotId);\r\n                Date deadline = getDateForTimeString(ts.startTime, today);\r\n                if (deadline != null && now.getTime() > deadline.getTime() + NO_SHOW_GRACE_PERIOD_MS) {\r\n                    db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);\r\n                    // Seat was never 'occupied', so no status change needed\r\n                }\r\n            }\r\n        }\r\n\r\n        // 2. Check for overdue checkouts\r\n        List<StudyRecord> activeStudies = db.studyRecordDao().getAllActiveStudyRecords();\r\n        for (StudyRecord sr : activeStudies) {\r\n            ReservationRecord r = db.reservationRecordDao().findReservationByUserAndDate(sr.studentId, today);\r\n            if (r != null) {\r\n                TimeSlot ts = db.timeSlotDao().getTimeSlotById(r.timeSlotId);\r\n                Date endTime = getDateForTimeString(ts.endTime, today);\r\n                if (endTime != null && now.after(endTime)) {\r\n                    sr.endTime = endTime; // Set end time to the slot's end\r\n                    db.studyRecordDao().update(sr);\r\n                    db.seatDao().updateSeatStatus(sr.seatId, \"available\");\r\n                    db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);\r\n                }\r\n            }\r\n        }\r\n        \r\n        // Refresh UI if the current user might be affected\r\n        handler.post(this::updateUIState);\r\n    }\r\n\r\n    // Helper to parse time string like \"17:00\" into a Date object for a specific day\r\n    private Date getDateForTimeString(String time, Date day) {\r\n        try {\r\n            String[] parts = time.split(\":\");\r\n            Calendar cal = Calendar.getInstance();\r\n            cal.setTime(day);\r\n            cal.set(Calendar.HOUR_OF_DAY, Integer.parseInt(parts[0]));\r\n            cal.set(Calendar.MINUTE, Integer.parseInt(parts[1]));\r\n            cal.set(Calendar.SECOND, 0);\r\n            cal.set(Calendar.MILLISECOND, 0);\r\n            return cal.getTime();\r\n        } catch (Exception e) {\r\n            return null;\r\n        }\r\n    }\r\n\r\n    // ... (rest of the methods like updateUIState, handleReservation, handleCheckIn, etc.)\r\n    private void populateSpinners() {\r\n        // Floors\r\n        ArrayAdapter<Integer> floorAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, getFloors());\r\n        floorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);\r\n        floorSpinner.setAdapter(floorAdapter);\r\n\r\n        // Seats\r\n        ArrayAdapter<Integer> seatAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, getSeats());\r\n        seatAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);\r\n        seatSpinner.setAdapter(seatAdapter);\r\n\r\n        // TimeSlots\r\n        executor.execute(() -> {\r\n            List<TimeSlot> timeSlots = db.timeSlotDao().getAllTimeSlots();\r\n            handler.post(() -> {\r\n                ArrayAdapter<TimeSlot> timeSlotAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, timeSlots);\r\n                timeSlotAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);\r\n                timeslotSpinner.setAdapter(timeSlotAdapter);\r\n            });\r\n        });\r\n    }\r\n\r\n    private void updateUIState() {\r\n        executor.execute(() -> {\r\n            Date today = getStartOfDay(new Date());\r\n            ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);\r\n            StudyRecord studyRecord = db.studyRecordDao().getCurrentStudyRecordForStudent(studentId);\r\n\r\n            handler.post(() -> {\r\n                if (studyRecord != null) {\r\n                    // State: Checked-in\r\n                    selectionLayout.setVisibility(View.GONE);\r\n                    reserveButton.setVisibility(View.GONE);\r\n                    cancelButton.setVisibility(View.GONE);\r\n                    checkinButton.setVisibility(View.GONE);\r\n                    checkoutButton.setVisibility(View.VISIBLE);\r\n                    seatStatusText.setText(\"状态: 已签到，正在学习\");\r\n                } else if (reservation != null) {\r\n                    // State: Reserved\r\n                    selectionLayout.setVisibility(View.GONE);\r\n                    reserveButton.setVisibility(View.GONE);\r\n                    cancelButton.setVisibility(View.VISIBLE);\r\n                    checkinButton.setVisibility(View.VISIBLE);\r\n                    checkoutButton.setVisibility(View.GONE);\r\n                    seatStatusText.setText(\"状态: 已预约，等待签到\");\r\n\r\n                    checkinButton.setEnabled(true);\r\n                } else {\r\n                    // State: No reservation\r\n                    selectionLayout.setVisibility(View.VISIBLE);\r\n                    reserveButton.setVisibility(View.VISIBLE);\r\n                    cancelButton.setVisibility(View.GONE);\r\n                    checkinButton.setVisibility(View.GONE);\r\n                    checkoutButton.setVisibility(View.GONE);\r\n                    seatStatusText.setText(\"状态: 未预约\");\r\n                }\r\n            });\r\n        });\r\n    }\r\n\r\n    private void handleReservation() {\r\n        TimeSlot selectedTimeSlot = (TimeSlot) timeslotSpinner.getSelectedItem();\r\n        int selectedSeatNum = (int) seatSpinner.getSelectedItem();\r\n        int selectedFloor = (int) floorSpinner.getSelectedItem();\r\n\r\n        if (selectedTimeSlot == null) {\r\n            Toast.makeText(getContext(), \"Please select a time slot\", Toast.LENGTH_SHORT).show();\r\n            return;\r\n        }\r\n        \r\n        executor.execute(() -> {\r\n            Seat seat = db.seatDao().findSeatByFloorAndNumber(selectedFloor, selectedSeatNum);\r\n            if (seat == null) {\r\n                handler.post(() -> Toast.makeText(getContext(), \"Selected seat is invalid\", Toast.LENGTH_SHORT).show());\r\n                return;\r\n            }\r\n\r\n            Date today = getStartOfDay(new Date());\r\n\r\n            List<ReservationRecord> existingReservations = db.reservationRecordDao().findReservationsForSeat(seat.id, selectedTimeSlot.id, today);\r\n            if (!existingReservations.isEmpty()) {\r\n                handler.post(() -> Toast.makeText(getContext(), \"This seat is already reserved for the selected time slot.\", Toast.LENGTH_LONG).show());\r\n                return;\r\n            }\r\n            \r\n            ReservationRecord userExistingReservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);\r\n            if (userExistingReservation != null) {\r\n                 handler.post(() -> Toast.makeText(getContext(), \"You already have a reservation for today.\", Toast.LENGTH_LONG).show());\r\n                return;\r\n            }\r\n\r\n            ReservationRecord newRecord = new ReservationRecord(studentId, seat.id, selectedTimeSlot.id, today);\r\n            db.reservationRecordDao().insert(newRecord);\r\n            handler.post(() -> {\r\n                Toast.makeText(getContext(), \"Reservation successful!\", Toast.LENGTH_SHORT).show();\r\n                updateUIState();\r\n            });\r\n        });\r\n    }\r\n\r\n    private void handleCancellation() {\r\n        executor.execute(() -> {\r\n            Date today = getStartOfDay(new Date());\r\n            ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);\r\n            if (reservation != null) {\r\n                db.reservationRecordDao().deleteReservation(reservation.studentId, reservation.seatId, reservation.timeSlotId, reservation.reservationDate);\r\n                handler.post(() -> {\r\n                    Toast.makeText(getContext(), \"预约已取消\", Toast.LENGTH_SHORT).show();\r\n                    updateUIState();\r\n                });\r\n            }\r\n        });\r\n    }\r\n\r\n    private void handleCheckIn() {\r\n        executor.execute(() -> {\r\n            Date today = getStartOfDay(new Date());\r\n            ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);\r\n            if (reservation != null) {\r\n                StudyRecord newStudyRecord = new StudyRecord(studentId, reservation.seatId, new Date());\r\n                db.studyRecordDao().insert(newStudyRecord);\r\n                db.seatDao().updateSeatStatus(reservation.seatId, \"occupied\");\r\n                handler.post(() -> {\r\n                    Toast.makeText(getContext(), \"签到成功!\", Toast.LENGTH_SHORT).show();\r\n                    updateUIState();\r\n                });\r\n            }\r\n        });\r\n    }\r\n\r\n    private void handleCheckOut() {\r\n        executor.execute(() -> {\r\n            StudyRecord currentStudy = db.studyRecordDao().getCurrentStudyRecordForStudent(studentId);\r\n            if (currentStudy != null) {\r\n                currentStudy.endTime = new Date();\r\n                db.studyRecordDao().update(currentStudy);\r\n                db.seatDao().updateSeatStatus(currentStudy.seatId, \"available\");\r\n\r\n                Date today = getStartOfDay(new Date());\r\n                ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);\r\n                if(reservation != null) {\r\n                    db.reservationRecordDao().deleteReservation(reservation.studentId, reservation.seatId, reservation.timeSlotId, reservation.reservationDate);\r\n                }\r\n\r\n                handler.post(() -> {\r\n                    Toast.makeText(getContext(), \"签退成功!\", Toast.LENGTH_SHORT).show();\r\n                    updateUIState();\r\n                });\r\n            }\r\n        });\r\n    }\r\n\r\n    private List<Integer> getFloors() {\r\n        List<Integer> floors = new ArrayList<>();\r\n        for (int i = 1; i <= 6; i++) floors.add(i);\r\n        return floors;\r\n    }\r\n\r\n    private List<Integer> getSeats() {\r\n        List<Integer> seats = new ArrayList<>();\r\n        for (int i = 1; i <= 100; i++) seats.add(i);\r\n        return seats;\r\n    }\r\n\r\n    private Date getStartOfDay(Date date) {\r\n        Calendar calendar = Calendar.getInstance();\r\n        calendar.setTime(date);\r\n        calendar.set(Calendar.HOUR_OF_DAY, 0);\r\n        calendar.set(Calendar.MINUTE, 0);\r\n        calendar.set(Calendar.SECOND, 0);\r\n        calendar.set(Calendar.MILLISECOND, 0);\r\n        return calendar.getTime();\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/client/SeatReservationFragment.java b/app/src/main/java/com/example/client/SeatReservationFragment.java
+--- a/app/src/main/java/com/example/client/SeatReservationFragment.java	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/java/com/example/client/SeatReservationFragment.java	(date 1764490633718)
+@@ -1,5 +1,8 @@
+ package com.example.client;
+ 
++import android.content.Context;
++import android.content.Intent;
++import android.content.SharedPreferences;
+ import android.os.Bundle;
+ import android.os.Handler;
+ import android.os.Looper;
+@@ -33,7 +36,7 @@
+     private View selectionLayout;
+ 
+     private AppDataBase db;
+-    private final int studentId = 1; // Hardcoded student ID
++    private int studentId = -1; // Will be initialized dynamically
+ 
+     private final Executor executor = Executors.newSingleThreadExecutor();
+     private final Handler handler = new Handler(Looper.getMainLooper());
+@@ -53,6 +56,8 @@
+     @Override
+     public void onResume() {
+         super.onResume();
++        // 初始化学生ID
++        initializeStudentId();
+         updateUIState();
+         startPeriodicChecks();
+     }
+@@ -82,8 +87,6 @@
+         checkinButton.setOnClickListener(v -> handleCheckIn());
+         checkoutButton.setOnClickListener(v -> handleCheckOut());
+     }
+-    
+-    // ... (populateSpinners, handleReservation, etc. remain the same) ...
+ 
+     private void startPeriodicChecks() {
+         seatCheckRunnable = () -> {
+@@ -98,41 +101,50 @@
+     }
+ 
+     private void runSeatReleaseChecks() {
+-        Date now = new Date();
+-        Date today = getStartOfDay(now);
++        try {
++            // 检查学生是否存在
++            if (!isStudentExists(studentId)) {
++                return;
++            }
++            
++            Date now = new Date();
++            Date today = getStartOfDay(now);
+         
+-        // 1. Check for no-shows
+-        List<ReservationRecord> reservations = db.reservationRecordDao().getReservationsByDate(today);
+-        for (ReservationRecord r : reservations) {
+-            StudyRecord sr = db.studyRecordDao().findActiveStudyRecordByStudentAndSeat(r.studentId, r.seatId);
+-            if (sr == null) { // Not checked in
+-                TimeSlot ts = db.timeSlotDao().getTimeSlotById(r.timeSlotId);
+-                Date deadline = getDateForTimeString(ts.startTime, today);
+-                if (deadline != null && now.getTime() > deadline.getTime() + NO_SHOW_GRACE_PERIOD_MS) {
+-                    db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
+-                    // Seat was never 'occupied', so no status change needed
+-                }
+-            }
+-        }
++            // 1. Check for no-shows
++            List<ReservationRecord> reservations = db.reservationRecordDao().getReservationsByDate(today);
++            for (ReservationRecord r : reservations) {
++                StudyRecord sr = db.studyRecordDao().findActiveStudyRecordByStudentAndSeat(r.studentId, r.seatId);
++                if (sr == null) { // Not checked in
++                    TimeSlot ts = db.timeSlotDao().getTimeSlotById(r.timeSlotId);
++                    Date deadline = getDateForTimeString(ts.startTime, today);
++                    if (deadline != null && now.getTime() > deadline.getTime() + NO_SHOW_GRACE_PERIOD_MS) {
++                        db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
++                        db.seatDao().updateSeatStatus(r.seatId, "available"); // 更新座位状态为可用
++                    }
++                }
++            }
+ 
+-        // 2. Check for overdue checkouts
+-        List<StudyRecord> activeStudies = db.studyRecordDao().getAllActiveStudyRecords();
+-        for (StudyRecord sr : activeStudies) {
+-            ReservationRecord r = db.reservationRecordDao().findReservationByUserAndDate(sr.studentId, today);
+-            if (r != null) {
+-                TimeSlot ts = db.timeSlotDao().getTimeSlotById(r.timeSlotId);
+-                Date endTime = getDateForTimeString(ts.endTime, today);
+-                if (endTime != null && now.after(endTime)) {
+-                    sr.endTime = endTime; // Set end time to the slot's end
+-                    db.studyRecordDao().update(sr);
+-                    db.seatDao().updateSeatStatus(sr.seatId, "available");
+-                    db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
+-                }
+-            }
+-        }
++            // 2. Check for overdue checkouts
++            List<StudyRecord> activeStudies = db.studyRecordDao().getAllActiveStudyRecords();
++            for (StudyRecord sr : activeStudies) {
++                ReservationRecord r = db.reservationRecordDao().findReservationByUserAndDate(sr.studentId, today);
++                if (r != null) {
++                    TimeSlot ts = db.timeSlotDao().getTimeSlotById(r.timeSlotId);
++                    Date endTime = getDateForTimeString(ts.endTime, today);
++                    if (endTime != null && now.after(endTime)) {
++                        sr.endTime = endTime; // Set end time to the slot's end
++                        db.studyRecordDao().update(sr);
++                        db.seatDao().updateSeatStatus(sr.seatId, "available");
++                        db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
++                    }
++                }
++            }
+         
+-        // Refresh UI if the current user might be affected
+-        handler.post(this::updateUIState);
++            // Refresh UI if the current user might be affected
++            handler.post(this::updateUIState);
++        } catch (Exception e) {
++            e.printStackTrace();
++        }
+     }
+ 
+     // Helper to parse time string like "17:00" into a Date object for a specific day
+@@ -151,7 +163,6 @@
+         }
+     }
+ 
+-    // ... (rest of the methods like updateUIState, handleReservation, handleCheckIn, etc.)
+     private void populateSpinners() {
+         // Floors
+         ArrayAdapter<Integer> floorAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, getFloors());
+@@ -164,51 +175,88 @@
+         seatSpinner.setAdapter(seatAdapter);
+ 
+         // TimeSlots
+-        executor.execute(() -> {
++        try {
+             List<TimeSlot> timeSlots = db.timeSlotDao().getAllTimeSlots();
+-            handler.post(() -> {
+-                ArrayAdapter<TimeSlot> timeSlotAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, timeSlots);
+-                timeSlotAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+-                timeslotSpinner.setAdapter(timeSlotAdapter);
++            ArrayAdapter<TimeSlot> timeSlotAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, timeSlots);
++            timeSlotAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
++            timeslotSpinner.setAdapter(timeSlotAdapter);
++        } catch (Exception e) {
++            e.printStackTrace();
++            // 如果无法获取时间槽，则创建默认的时间槽
++            List<TimeSlot> defaultTimeSlots = new ArrayList<>();
++            defaultTimeSlots.add(new TimeSlot("07:00", "12:00"));
++            defaultTimeSlots.add(new TimeSlot("12:00", "17:00"));
++            defaultTimeSlots.add(new TimeSlot("17:00", "23:00"));
++            
++            ArrayAdapter<TimeSlot> timeSlotAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, defaultTimeSlots);
++            timeSlotAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
++            timeslotSpinner.setAdapter(timeSlotAdapter);
++            
++            // 在后台线程中插入默认时间槽到数据库
++            executor.execute(() -> {
++                try {
++                    db.timeSlotDao().insertAll(
++                        new TimeSlot("07:00", "12:00"),
++                        new TimeSlot("12:00", "17:00"),
++                        new TimeSlot("17:00", "23:00")
++                    );
++                } catch (Exception ex) {
++                    ex.printStackTrace();
++                }
+             });
+-        });
++        }
+     }
+ 
+     private void updateUIState() {
+         executor.execute(() -> {
+-            Date today = getStartOfDay(new Date());
+-            ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
+-            StudyRecord studyRecord = db.studyRecordDao().getCurrentStudyRecordForStudent(studentId);
++            try {
++                // 检查学生是否存在
++                if (!isStudentExists(studentId)) {
++                    handler.post(() -> {
++                        Toast.makeText(getContext(), "学生信息不存在，请重新登录", Toast.LENGTH_LONG).show();
++                    });
++                    return;
++                }
++                
++                Date today = getStartOfDay(new Date());
++                ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
++                StudyRecord studyRecord = db.studyRecordDao().getCurrentStudyRecordForStudent(studentId);
+ 
+-            handler.post(() -> {
+-                if (studyRecord != null) {
+-                    // State: Checked-in
+-                    selectionLayout.setVisibility(View.GONE);
+-                    reserveButton.setVisibility(View.GONE);
+-                    cancelButton.setVisibility(View.GONE);
+-                    checkinButton.setVisibility(View.GONE);
+-                    checkoutButton.setVisibility(View.VISIBLE);
+-                    seatStatusText.setText("状态: 已签到，正在学习");
+-                } else if (reservation != null) {
+-                    // State: Reserved
+-                    selectionLayout.setVisibility(View.GONE);
+-                    reserveButton.setVisibility(View.GONE);
+-                    cancelButton.setVisibility(View.VISIBLE);
+-                    checkinButton.setVisibility(View.VISIBLE);
+-                    checkoutButton.setVisibility(View.GONE);
+-                    seatStatusText.setText("状态: 已预约，等待签到");
++                handler.post(() -> {
++                    if (studyRecord != null) {
++                        // State: Checked-in
++                        selectionLayout.setVisibility(View.GONE);
++                        reserveButton.setVisibility(View.GONE);
++                        cancelButton.setVisibility(View.GONE);
++                        checkinButton.setVisibility(View.GONE);
++                        checkoutButton.setVisibility(View.VISIBLE);
++                        seatStatusText.setText("状态: 已签到，正在学习");
++                    } else if (reservation != null) {
++                        // State: Reserved
++                        selectionLayout.setVisibility(View.GONE);
++                        reserveButton.setVisibility(View.GONE);
++                        cancelButton.setVisibility(View.VISIBLE);
++                        checkinButton.setVisibility(View.VISIBLE);
++                        checkoutButton.setVisibility(View.GONE);
++                        seatStatusText.setText("状态: 已预约，等待签到");
+ 
+-                    checkinButton.setEnabled(true);
+-                } else {
+-                    // State: No reservation
+-                    selectionLayout.setVisibility(View.VISIBLE);
+-                    reserveButton.setVisibility(View.VISIBLE);
+-                    cancelButton.setVisibility(View.GONE);
+-                    checkinButton.setVisibility(View.GONE);
+-                    checkoutButton.setVisibility(View.GONE);
+-                    seatStatusText.setText("状态: 未预约");
+-                }
+-            });
++                        checkinButton.setEnabled(true);
++                    } else {
++                        // State: No reservation
++                        selectionLayout.setVisibility(View.VISIBLE);
++                        reserveButton.setVisibility(View.VISIBLE);
++                        cancelButton.setVisibility(View.GONE);
++                        checkinButton.setVisibility(View.GONE);
++                        checkoutButton.setVisibility(View.GONE);
++                        seatStatusText.setText("状态: 未预约");
++                    }
++                });
++            } catch (Exception e) {
++                e.printStackTrace();
++                handler.post(() -> {
++                    Toast.makeText(getContext(), "数据加载失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
++                });
++            }
+         });
+     }
+ 
+@@ -218,49 +266,77 @@
+         int selectedFloor = (int) floorSpinner.getSelectedItem();
+ 
+         if (selectedTimeSlot == null) {
+-            Toast.makeText(getContext(), "Please select a time slot", Toast.LENGTH_SHORT).show();
++            Toast.makeText(getContext(), "请选择时间段", Toast.LENGTH_SHORT).show();
+             return;
+         }
+         
+         executor.execute(() -> {
+-            Seat seat = db.seatDao().findSeatByFloorAndNumber(selectedFloor, selectedSeatNum);
+-            if (seat == null) {
+-                handler.post(() -> Toast.makeText(getContext(), "Selected seat is invalid", Toast.LENGTH_SHORT).show());
+-                return;
+-            }
++            try {
++                // 检查学生是否存在
++                if (!isStudentExists(studentId)) {
++                    handler.post(() -> Toast.makeText(getContext(), "学生信息不存在，请重新登录", Toast.LENGTH_LONG).show());
++                    return;
++                }
++                
++                Seat seat = db.seatDao().findSeatByFloorAndNumber(selectedFloor, selectedSeatNum);
++                if (seat == null) {
++                    handler.post(() -> Toast.makeText(getContext(), "选择的座位不存在", Toast.LENGTH_SHORT).show());
++                    return;
++                }
+ 
+-            Date today = getStartOfDay(new Date());
++                Date today = getStartOfDay(new Date());
+ 
+-            List<ReservationRecord> existingReservations = db.reservationRecordDao().findReservationsForSeat(seat.id, selectedTimeSlot.id, today);
+-            if (!existingReservations.isEmpty()) {
+-                handler.post(() -> Toast.makeText(getContext(), "This seat is already reserved for the selected time slot.", Toast.LENGTH_LONG).show());
+-                return;
+-            }
++                List<ReservationRecord> existingReservations = db.reservationRecordDao().findReservationsForSeat(seat.id, selectedTimeSlot.id, today);
++                if (!existingReservations.isEmpty()) {
++                    handler.post(() -> Toast.makeText(getContext(), "该座位在所选时间段已被预订", Toast.LENGTH_LONG).show());
++                    return;
++                }
+             
+-            ReservationRecord userExistingReservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
+-            if (userExistingReservation != null) {
+-                 handler.post(() -> Toast.makeText(getContext(), "You already have a reservation for today.", Toast.LENGTH_LONG).show());
+-                return;
+-            }
++                ReservationRecord userExistingReservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
++                if (userExistingReservation != null) {
++                     handler.post(() -> Toast.makeText(getContext(), "您今天已经有一个预约", Toast.LENGTH_LONG).show());
++                    return;
++                }
+ 
+-            ReservationRecord newRecord = new ReservationRecord(studentId, seat.id, selectedTimeSlot.id, today);
+-            db.reservationRecordDao().insert(newRecord);
+-            handler.post(() -> {
+-                Toast.makeText(getContext(), "Reservation successful!", Toast.LENGTH_SHORT).show();
+-                updateUIState();
+-            });
++                ReservationRecord newRecord = new ReservationRecord(studentId, seat.id, selectedTimeSlot.id, today);
++                db.reservationRecordDao().insert(newRecord);
++                db.seatDao().updateSeatStatus(seat.id, "reserved"); // 更新座位状态为已预约
++                handler.post(() -> {
++                    Toast.makeText(getContext(), "预约成功！", Toast.LENGTH_SHORT).show();
++                    updateUIState();
++                });
++            } catch (Exception e) {
++                e.printStackTrace();
++                handler.post(() -> {
++                    Toast.makeText(getContext(), "预约失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
++                });
++            }
+         });
+     }
+ 
+     private void handleCancellation() {
+         executor.execute(() -> {
+-            Date today = getStartOfDay(new Date());
+-            ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
+-            if (reservation != null) {
+-                db.reservationRecordDao().deleteReservation(reservation.studentId, reservation.seatId, reservation.timeSlotId, reservation.reservationDate);
+-                handler.post(() -> {
+-                    Toast.makeText(getContext(), "预约已取消", Toast.LENGTH_SHORT).show();
+-                    updateUIState();
++            try {
++                // 检查学生是否存在
++                if (!isStudentExists(studentId)) {
++                    handler.post(() -> Toast.makeText(getContext(), "学生信息不存在，请重新登录", Toast.LENGTH_LONG).show());
++                    return;
++                }
++                
++                Date today = getStartOfDay(new Date());
++                ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
++                if (reservation != null) {
++                    db.reservationRecordDao().deleteReservation(reservation.studentId, reservation.seatId, reservation.timeSlotId, reservation.reservationDate);
++                    db.seatDao().updateSeatStatus(reservation.seatId, "available"); // 更新座位状态为可用
++                    handler.post(() -> {
++                        Toast.makeText(getContext(), "预约已取消", Toast.LENGTH_SHORT).show();
++                        updateUIState();
++                    });
++                }
++            } catch (Exception e) {
++                e.printStackTrace();
++                handler.post(() -> {
++                    Toast.makeText(getContext(), "取消预约失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                 });
+             }
+         });
+@@ -268,15 +344,28 @@
+ 
+     private void handleCheckIn() {
+         executor.execute(() -> {
+-            Date today = getStartOfDay(new Date());
+-            ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
+-            if (reservation != null) {
+-                StudyRecord newStudyRecord = new StudyRecord(studentId, reservation.seatId, new Date());
+-                db.studyRecordDao().insert(newStudyRecord);
+-                db.seatDao().updateSeatStatus(reservation.seatId, "occupied");
+-                handler.post(() -> {
+-                    Toast.makeText(getContext(), "签到成功!", Toast.LENGTH_SHORT).show();
+-                    updateUIState();
++            try {
++                // 检查学生是否存在
++                if (!isStudentExists(studentId)) {
++                    handler.post(() -> Toast.makeText(getContext(), "学生信息不存在，请重新登录", Toast.LENGTH_LONG).show());
++                    return;
++                }
++                
++                Date today = getStartOfDay(new Date());
++                ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
++                if (reservation != null) {
++                    StudyRecord newStudyRecord = new StudyRecord(studentId, reservation.seatId, new Date());
++                    db.studyRecordDao().insert(newStudyRecord);
++                    db.seatDao().updateSeatStatus(reservation.seatId, "occupied"); // 更新座位状态为占用中
++                    handler.post(() -> {
++                        Toast.makeText(getContext(), "签到成功!", Toast.LENGTH_SHORT).show();
++                        updateUIState();
++                    });
++                }
++            } catch (Exception e) {
++                e.printStackTrace();
++                handler.post(() -> {
++                    Toast.makeText(getContext(), "签到失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                 });
+             }
+         });
+@@ -284,21 +373,34 @@
+ 
+     private void handleCheckOut() {
+         executor.execute(() -> {
+-            StudyRecord currentStudy = db.studyRecordDao().getCurrentStudyRecordForStudent(studentId);
+-            if (currentStudy != null) {
+-                currentStudy.endTime = new Date();
+-                db.studyRecordDao().update(currentStudy);
+-                db.seatDao().updateSeatStatus(currentStudy.seatId, "available");
++            try {
++                // 检查学生是否存在
++                if (!isStudentExists(studentId)) {
++                    handler.post(() -> Toast.makeText(getContext(), "学生信息不存在，请重新登录", Toast.LENGTH_LONG).show());
++                    return;
++                }
++                
++                StudyRecord currentStudy = db.studyRecordDao().getCurrentStudyRecordForStudent(studentId);
++                if (currentStudy != null) {
++                    currentStudy.endTime = new Date();
++                    db.studyRecordDao().update(currentStudy);
++                    db.seatDao().updateSeatStatus(currentStudy.seatId, "available"); // 更新座位状态为可用
+ 
+-                Date today = getStartOfDay(new Date());
+-                ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
+-                if(reservation != null) {
+-                    db.reservationRecordDao().deleteReservation(reservation.studentId, reservation.seatId, reservation.timeSlotId, reservation.reservationDate);
+-                }
++                    Date today = getStartOfDay(new Date());
++                    ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
++                    if(reservation != null) {
++                        db.reservationRecordDao().deleteReservation(reservation.studentId, reservation.seatId, reservation.timeSlotId, reservation.reservationDate);
++                    }
+ 
+-                handler.post(() -> {
+-                    Toast.makeText(getContext(), "签退成功!", Toast.LENGTH_SHORT).show();
+-                    updateUIState();
++                    handler.post(() -> {
++                        Toast.makeText(getContext(), "签退成功!", Toast.LENGTH_SHORT).show();
++                        updateUIState();
++                    });
++                }
++            } catch (Exception e) {
++                e.printStackTrace();
++                handler.post(() -> {
++                    Toast.makeText(getContext(), "签退失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                 });
+             }
+         });
+@@ -325,4 +427,27 @@
+         calendar.set(Calendar.MILLISECOND, 0);
+         return calendar.getTime();
+     }
++
++    private void initializeStudentId() {
++        // 从SharedPreferences中获取当前登录的学生ID
++        SharedPreferences sharedPreferences = getActivity().getSharedPreferences("library_app", Context.MODE_PRIVATE);
++        studentId = sharedPreferences.getInt("student_id", -1); // 默认值为-1
++        
++        // 如果SharedPreferences中没有存储学生ID，则使用默认值1
++        if (studentId == -1) {
++            studentId = 1;
++        }
++    }
++
++    private boolean isStudentExists(int studentId) {
++        try {
++            // 注意：这里使用studentId作为account参数查询学生
++            List<Student> students = db.studentDao().findByAccount(new String[]{String.valueOf(studentId)});
++            return !students.isEmpty();
++        } catch (Exception e) {
++            e.printStackTrace();
++            return false;
++        }
++    }
++
+ }
+Index: gradle/libs.versions.toml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>[versions]\r\nagp = \"8.13.1\"\r\nkotlin = \"2.0.21\"\r\ncoreKtx = \"1.17.0\"\r\njunit = \"4.13.2\"\r\njunitVersion = \"1.3.0\"\r\nespressoCore = \"3.7.0\"\r\nlifecycleRuntimeKtx = \"2.9.4\"\r\nactivityCompose = \"1.11.0\"\r\ncomposeBom = \"2024.09.00\"\r\nappcompat = \"1.7.1\"\r\nmaterial = \"1.13.0\"\r\nactivity = \"1.12.0\"\r\nconstraintlayout = \"2.2.1\"\r\nroomCommonJvm = \"2.8.4\"\r\n\r\n[libraries]\r\nandroidx-core-ktx = { group = \"androidx.core\", name = \"core-ktx\", version.ref = \"coreKtx\" }\r\njunit = { group = \"junit\", name = \"junit\", version.ref = \"junit\" }\r\nandroidx-junit = { group = \"androidx.test.ext\", name = \"junit\", version.ref = \"junitVersion\" }\r\nandroidx-espresso-core = { group = \"androidx.test.espresso\", name = \"espresso-core\", version.ref = \"espressoCore\" }\r\nandroidx-lifecycle-runtime-ktx = { group = \"androidx.lifecycle\", name = \"lifecycle-runtime-ktx\", version.ref = \"lifecycleRuntimeKtx\" }\r\nandroidx-activity-compose = { group = \"androidx.activity\", name = \"activity-compose\", version.ref = \"activityCompose\" }\r\nandroidx-compose-bom = { group = \"androidx.compose\", name = \"compose-bom\", version.ref = \"composeBom\" }\r\nandroidx-compose-ui = { group = \"androidx.compose.ui\", name = \"ui\" }\r\nandroidx-compose-ui-graphics = { group = \"androidx.compose.ui\", name = \"ui-graphics\" }\r\nandroidx-compose-ui-tooling = { group = \"androidx.compose.ui\", name = \"ui-tooling\" }\r\nandroidx-compose-ui-tooling-preview = { group = \"androidx.compose.ui\", name = \"ui-tooling-preview\" }\r\nandroidx-compose-ui-test-manifest = { group = \"androidx.compose.ui\", name = \"ui-test-manifest\" }\r\nandroidx-compose-ui-test-junit4 = { group = \"androidx.compose.ui\", name = \"ui-test-junit4\" }\r\nandroidx-compose-material3 = { group = \"androidx.compose.material3\", name = \"material3\" }\r\nandroidx-appcompat = { group = \"androidx.appcompat\", name = \"appcompat\", version.ref = \"appcompat\" }\r\nmaterial = { group = \"com.google.android.material\", name = \"material\", version.ref = \"material\" }\r\nandroidx-activity = { group = \"androidx.activity\", name = \"activity\", version.ref = \"activity\" }\r\nandroidx-constraintlayout = { group = \"androidx.constraintlayout\", name = \"constraintlayout\", version.ref = \"constraintlayout\" }\r\nandroidx-room-common-jvm = { group = \"androidx.room\", name = \"room-common-jvm\", version.ref = \"roomCommonJvm\" }\r\n\r\n[plugins]\r\nandroid-application = { id = \"com.android.application\", version.ref = \"agp\" }\r\nkotlin-android = { id = \"org.jetbrains.kotlin.android\", version.ref = \"kotlin\" }\r\nkotlin-compose = { id = \"org.jetbrains.kotlin.plugin.compose\", version.ref = \"kotlin\" }\r\n\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
+--- a/gradle/libs.versions.toml	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/gradle/libs.versions.toml	(date 1764490633743)
+@@ -13,6 +13,7 @@
+ activity = "1.12.0"
+ constraintlayout = "2.2.1"
+ roomCommonJvm = "2.8.4"
++cardview = "1.0.0"
+ 
+ [libraries]
+ androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+@@ -34,9 +35,9 @@
+ androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+ androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+ androidx-room-common-jvm = { group = "androidx.room", name = "room-common-jvm", version.ref = "roomCommonJvm" }
++androidx-cardview = { group = "androidx.cardview", name = "cardview", version.ref = "cardview" }
+ 
+ [plugins]
+ android-application = { id = "com.android.application", version.ref = "agp" }
+ kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+-kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+-
++kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+\ No newline at end of file
+Index: app/src/main/java/com/example/client/LoginStudent.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.client;\r\n\r\nimport android.content.Intent;\r\nimport android.os.Bundle;\r\nimport android.view.View;\r\nimport android.widget.Button;\r\nimport android.widget.TextView;\r\nimport android.widget.Toast;\r\n\r\nimport androidx.activity.EdgeToEdge;\r\nimport androidx.appcompat.app.AppCompatActivity;\r\nimport androidx.core.graphics.Insets;\r\nimport androidx.core.view.ViewCompat;\r\nimport androidx.core.view.WindowInsetsCompat;\r\n\r\nimport com.google.android.material.textfield.TextInputEditText;\r\n\r\nimport java.util.List;\r\n\r\npublic class LoginStudent extends AppCompatActivity {\r\n    private TextInputEditText accountEditText, passwordEditText;\r\n    private Button loginButton;\r\n    private TextView gotoRegister;\r\n\r\n    @Override\r\n    protected void onCreate(Bundle savedInstanceState) {\r\n        super.onCreate(savedInstanceState);\r\n        EdgeToEdge.enable(this);\r\n        setContentView(R.layout.activity_login_student);\r\n\r\n        initViews();\r\n        setListeners();\r\n\r\n        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {\r\n            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());\r\n            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);\r\n            return insets;\r\n        });\r\n    }\r\n\r\n    private void initViews() {\r\n        accountEditText = findViewById(R.id.login_student_account);\r\n        passwordEditText = findViewById(R.id.login_student_password);\r\n        loginButton = findViewById(R.id.login_student_button);\r\n        gotoRegister = findViewById(R.id.goto_register);\r\n    }\r\n\r\n    private void setListeners() {\r\n        loginButton.setOnClickListener(new View.OnClickListener() {\r\n            @Override\r\n            public void onClick(View v) {\r\n                performLogin();\r\n            }\r\n        });\r\n\r\n        gotoRegister.setOnClickListener(new View.OnClickListener() {\r\n            @Override\r\n            public void onClick(View v) {\r\n                Intent intent = new Intent(LoginStudent.this, RegisterStudent.class);\r\n                startActivity(intent);\r\n            }\r\n        });\r\n    }\r\n\r\n    private void performLogin() {\r\n        final String account = accountEditText.getText().toString().trim();\r\n        final String password = passwordEditText.getText().toString();\r\n\r\n        if (account.isEmpty() || password.isEmpty()) {\r\n            Toast.makeText(LoginStudent.this, \"请输入账号和密码\", Toast.LENGTH_SHORT).show();\r\n            return;\r\n        }\r\n\r\n        AppDataBase.databaseWriteExecutor.execute(() -> {\r\n            List<Student> students = AppDataBase.getInstance(getApplicationContext())\r\n                    .studentDao()\r\n                    .findByAccount(new String[]{account});\r\n\r\n            runOnUiThread(() -> {\r\n                if (students.isEmpty()) {\r\n                    Toast.makeText(LoginStudent.this, \"账号不存在\", Toast.LENGTH_SHORT).show();\r\n                } else {\r\n                    Student student = students.get(0);\r\n                    if (student.password.equals(password)) {\r\n                        Toast.makeText(LoginStudent.this, \"登录成功\", Toast.LENGTH_SHORT).show();\r\n                        // 跳转到图书馆管理系统主界面\r\n                        Intent intent = new Intent(LoginStudent.this, LibraryMainActivity.class);\r\n                        startActivity(intent);\r\n                        finish(); // 关闭当前Activity\r\n                    } else {\r\n                        Toast.makeText(LoginStudent.this, \"密码错误\", Toast.LENGTH_SHORT).show();\r\n                    }\r\n                }\r\n            });\r\n        });\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/client/LoginStudent.java b/app/src/main/java/com/example/client/LoginStudent.java
+--- a/app/src/main/java/com/example/client/LoginStudent.java	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/java/com/example/client/LoginStudent.java	(date 1764490633714)
+@@ -1,6 +1,8 @@
+ package com.example.client;
+ 
++import android.content.Context;
+ import android.content.Intent;
++import android.content.SharedPreferences;
+ import android.os.Bundle;
+ import android.view.View;
+ import android.widget.Button;
+@@ -83,6 +85,13 @@
+                     Student student = students.get(0);
+                     if (student.password.equals(password)) {
+                         Toast.makeText(LoginStudent.this, "登录成功", Toast.LENGTH_SHORT).show();
++                        
++                        // 保存学生ID到SharedPreferences
++                        SharedPreferences sharedPreferences = getSharedPreferences("library_app", Context.MODE_PRIVATE);
++                        SharedPreferences.Editor editor = sharedPreferences.edit();
++                        editor.putInt("student_id", student.id);
++                        editor.apply();
++                        
+                         // 跳转到图书馆管理系统主界面
+                         Intent intent = new Intent(LoginStudent.this, LibraryMainActivity.class);
+                         startActivity(intent);
+@@ -94,4 +103,4 @@
+             });
+         });
+     }
+-}
++}
+\ No newline at end of file
+Index: app/src/main/res/layout/fragment_seat_reservation.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<LinearLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n    xmlns:tools=\"http://schemas.android.com/tools\"\r\n    android:layout_width=\"match_parent\"\r\n    android:layout_height=\"match_parent\"\r\n    android:orientation=\"vertical\"\r\n    android:padding=\"16dp\"\r\n    tools:context=\".SeatReservationFragment\">\r\n\r\n    <TextView\r\n        android:id=\"@+id/seat_status\"\r\n        android:layout_width=\"wrap_content\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"状态: 未知\"\r\n        android:textSize=\"18sp\"\r\n        android:layout_marginBottom=\"16dp\"/>\r\n\r\n    <LinearLayout\r\n        android:id=\"@+id/selection_layout\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:orientation=\"vertical\">\r\n\r\n        <TextView\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"选择楼层:\"/>\r\n        <Spinner\r\n            android:id=\"@+id/floor_spinner\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\" />\r\n\r\n        <TextView\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"选择座位:\"/>\r\n        <Spinner\r\n            android:id=\"@+id/seat_spinner\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\" />\r\n\r\n        <TextView\r\n            android:layout_width=\"wrap_content\"\r\n            android:layout_height=\"wrap_content\"\r\n            android:text=\"选择时间段:\"/>\r\n        <Spinner\r\n            android:id=\"@+id/timeslot_spinner\"\r\n            android:layout_width=\"match_parent\"\r\n            android:layout_height=\"wrap_content\" />\r\n    </LinearLayout>\r\n\r\n    <Button\r\n        android:id=\"@+id/reserve_button\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"预约座位\"\r\n        android:layout_marginTop=\"16dp\"/>\r\n\r\n    <Button\r\n        android:id=\"@+id/cancel_button\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"取消预约\"/>\r\n\r\n    <Button\r\n        android:id=\"@+id/checkin_button\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"签到\"/>\r\n\r\n    <Button\r\n        android:id=\"@+id/checkout_button\"\r\n        android:layout_width=\"match_parent\"\r\n        android:layout_height=\"wrap_content\"\r\n        android:text=\"签退\"/>\r\n\r\n</LinearLayout>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/res/layout/fragment_seat_reservation.xml b/app/src/main/res/layout/fragment_seat_reservation.xml
+--- a/app/src/main/res/layout/fragment_seat_reservation.xml	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/res/layout/fragment_seat_reservation.xml	(date 1764490633734)
+@@ -43,6 +43,7 @@
+             android:layout_width="wrap_content"
+             android:layout_height="wrap_content"
+             android:text="选择时间段:"/>
++
+         <Spinner
+             android:id="@+id/timeslot_spinner"
+             android:layout_width="match_parent"
+Index: app/src/main/java/com/example/client/Book.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.client;\r\n\r\npublic class Book {\r\n    private String title;\r\n    private String author;\r\n    private String publisher;\r\n    private String year;\r\n\r\n    public Book(String title, String author, String publisher, String year) {\r\n        this.title = title;\r\n        this.author = author;\r\n        this.publisher = publisher;\r\n        this.year = year;\r\n    }\r\n\r\n    public String getTitle() {\r\n        return title;\r\n    }\r\n\r\n    public String getAuthor() {\r\n        return author;\r\n    }\r\n\r\n    public String getPublisher() {\r\n        return publisher;\r\n    }\r\n\r\n    public String getYear() {\r\n        return year;\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/client/Book.java b/app/src/main/java/com/example/client/Book.java
+--- a/app/src/main/java/com/example/client/Book.java	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/java/com/example/client/Book.java	(date 1764490633689)
+@@ -1,16 +1,30 @@
++// Book.java
+ package com.example.client;
+ 
+-public class Book {
++import java.io.Serializable;
++
++public class Book implements Serializable {
+     private String title;
+     private String author;
+     private String publisher;
+     private String year;
++    private String description; // 添加简介字段
+ 
++    public Book(String title, String author, String publisher, String year, String description) {
++        this.title = title;
++        this.author = author;
++        this.publisher = publisher;
++        this.year = year;
++        this.description = description;
++    }
++
++    // 为保持向后兼容，也可以添加不带description的构造函数
+     public Book(String title, String author, String publisher, String year) {
+         this.title = title;
+         this.author = author;
+         this.publisher = publisher;
+         this.year = year;
++        this.description = "暂无简介"; // 默认简介
+     }
+ 
+     public String getTitle() {
+@@ -28,4 +42,8 @@
+     public String getYear() {
+         return year;
+     }
+-}
++
++    public String getDescription() {
++        return description;
++    }
++}
+\ No newline at end of file
+Index: app/src/main/java/com/example/client/BookAdapter.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.client;\r\n\r\nimport android.view.LayoutInflater;\r\nimport android.view.View;\r\nimport android.view.ViewGroup;\r\nimport android.widget.TextView;\r\n\r\nimport androidx.annotation.NonNull;\r\nimport androidx.recyclerview.widget.RecyclerView;\r\n\r\nimport java.util.ArrayList;\r\nimport java.util.List;\r\n\r\npublic class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder> {\r\n\r\n    private List<Book> bookList;\r\n\r\n    public BookAdapter(List<Book> bookList) {\r\n        this.bookList = bookList != null ? bookList : new ArrayList<>();\r\n    }\r\n\r\n    @NonNull\r\n    @Override\r\n    public BookViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {\r\n        View view = LayoutInflater.from(parent.getContext())\r\n                .inflate(R.layout.item_book, parent, false);\r\n        return new BookViewHolder(view);\r\n    }\r\n\r\n    @Override\r\n    public void onBindViewHolder(@NonNull BookViewHolder holder, int position) {\r\n        Book book = bookList.get(position);\r\n        holder.titleText.setText(book.getTitle());\r\n        holder.authorText.setText(\"作者: \" + book.getAuthor());\r\n        holder.publisherText.setText(\"出版社: \" + book.getPublisher());\r\n        holder.yearText.setText(\"出版年份: \" + book.getYear());\r\n    }\r\n\r\n    @Override\r\n    public int getItemCount() {\r\n        return bookList.size();\r\n    }\r\n\r\n    public void updateList(List<Book> newList) {\r\n        this.bookList = newList != null ? newList : new ArrayList<>();\r\n        notifyDataSetChanged();\r\n    }\r\n\r\n    static class BookViewHolder extends RecyclerView.ViewHolder {\r\n        TextView titleText, authorText, publisherText, yearText;\r\n\r\n        BookViewHolder(@NonNull View itemView) {\r\n            super(itemView);\r\n            titleText = itemView.findViewById(R.id.book_title);\r\n            authorText = itemView.findViewById(R.id.book_author);\r\n            publisherText = itemView.findViewById(R.id.book_publisher);\r\n            yearText = itemView.findViewById(R.id.book_year);\r\n        }\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/client/BookAdapter.java b/app/src/main/java/com/example/client/BookAdapter.java
+--- a/app/src/main/java/com/example/client/BookAdapter.java	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/java/com/example/client/BookAdapter.java	(date 1764490633699)
+@@ -1,3 +1,4 @@
++// BookAdapter.java
+ package com.example.client;
+ 
+ import android.view.LayoutInflater;
+@@ -14,11 +15,20 @@
+ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder> {
+ 
+     private List<Book> bookList;
++    private OnBookClickListener listener;
++
++    public interface OnBookClickListener {
++        void onBookClick(Book book);
++    }
+ 
+     public BookAdapter(List<Book> bookList) {
+         this.bookList = bookList != null ? bookList : new ArrayList<>();
+     }
+ 
++    public void setOnBookClickListener(OnBookClickListener listener) {
++        this.listener = listener;
++    }
++
+     @NonNull
+     @Override
+     public BookViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+@@ -34,6 +44,13 @@
+         holder.authorText.setText("作者: " + book.getAuthor());
+         holder.publisherText.setText("出版社: " + book.getPublisher());
+         holder.yearText.setText("出版年份: " + book.getYear());
++
++        // 设置整个项目的点击监听器
++        holder.itemView.setOnClickListener(v -> {
++            if (listener != null) {
++                listener.onBookClick(book);
++            }
++        });
+     }
+ 
+     @Override
+@@ -57,4 +74,4 @@
+             yearText = itemView.findViewById(R.id.book_year);
+         }
+     }
+-}
++}
+\ No newline at end of file
+Index: app/src/main/java/com/example/client/BookSearchFragment.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.client;\r\n\r\nimport android.os.Bundle;\r\nimport android.view.LayoutInflater;\r\nimport android.view.View;\r\nimport android.view.ViewGroup;\r\nimport android.widget.Button;\r\nimport android.widget.EditText;\r\nimport android.widget.TextView;\r\n\r\nimport androidx.fragment.app.Fragment;\r\nimport androidx.recyclerview.widget.LinearLayoutManager;\r\nimport androidx.recyclerview.widget.RecyclerView;\r\n\r\nimport java.util.ArrayList;\r\nimport java.util.List;\r\n\r\npublic class BookSearchFragment extends Fragment {\r\n\r\n    private EditText searchInput;\r\n    private Button searchButton;\r\n    private RecyclerView booksRecyclerView;\r\n    private BookAdapter bookAdapter;\r\n    private List<Book> bookList;\r\n\r\n    public BookSearchFragment() {\r\n        // Required empty public constructor\r\n    }\r\n\r\n    @Override\r\n    public View onCreateView(LayoutInflater inflater, ViewGroup container,\r\n                             Bundle savedInstanceState) {\r\n        View view = inflater.inflate(R.layout.fragment_book_search, container, false);\r\n\r\n        searchInput = view.findViewById(R.id.search_input);\r\n        searchButton = view.findViewById(R.id.search_button);\r\n        booksRecyclerView = view.findViewById(R.id.books_recycler_view);\r\n\r\n        bookList = new ArrayList<>();\r\n        bookAdapter = new BookAdapter(bookList);\r\n        booksRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));\r\n        booksRecyclerView.setAdapter(bookAdapter);\r\n\r\n        searchButton.setOnClickListener(v -> performSearch());\r\n\r\n        // 初始化一些示例数据\r\n        initializeSampleData();\r\n\r\n        return view;\r\n    }\r\n\r\n    private void performSearch() {\r\n        String query = searchInput.getText().toString().trim();\r\n        if (!query.isEmpty()) {\r\n            // 这里应该调用实际的搜索API\r\n            filterBooks(query);\r\n        }\r\n    }\r\n\r\n    private void filterBooks(String query) {\r\n        List<Book> filteredList = new ArrayList<>();\r\n        for (Book book : bookList) {\r\n            if (book.getTitle().toLowerCase().contains(query.toLowerCase()) ||\r\n                    book.getAuthor().toLowerCase().contains(query.toLowerCase())) {\r\n                filteredList.add(book);\r\n            }\r\n        }\r\n        bookAdapter.updateList(filteredList);\r\n    }\r\n\r\n    private void initializeSampleData() {\r\n        bookList.add(new Book(\"Java核心技术\", \"Cay S. Horstmann\", \"机械工业出版社\", \"2020\"));\r\n        bookList.add(new Book(\"Android开发艺术探索\", \"任玉刚\", \"电子工业出版社\", \"2019\"));\r\n        bookList.add(new Book(\"算法导论\", \"Thomas H. Cormen\", \"机械工业出版社\", \"2013\"));\r\n        bookList.add(new Book(\"设计模式\", \"Gang of Four\", \"机械工业出版社\", \"2010\"));\r\n        bookList.add(new Book(\"重构\", \"Martin Fowler\", \"人民邮电出版社\", \"2019\"));\r\n        bookAdapter.updateList(bookList);\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/client/BookSearchFragment.java b/app/src/main/java/com/example/client/BookSearchFragment.java
+--- a/app/src/main/java/com/example/client/BookSearchFragment.java	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/java/com/example/client/BookSearchFragment.java	(date 1764490633709)
+@@ -41,14 +41,25 @@
+         booksRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+         booksRecyclerView.setAdapter(bookAdapter);
+ 
++        // 添加书籍点击监听器
++        bookAdapter.setOnBookClickListener(book -> {
++            BookDetailFragment detailFragment = BookDetailFragment.newInstance(book);
++            if (getActivity() != null) {
++                getActivity().getSupportFragmentManager()
++                        .beginTransaction()
++                        .replace(R.id.fragment_container, detailFragment)
++                        .addToBackStack(null)
++                        .commit();
++            }
++        });
++
+         searchButton.setOnClickListener(v -> performSearch());
+ 
+-        // 初始化一些示例数据
++        // 初始化示例数据
+         initializeSampleData();
+ 
+         return view;
+     }
+-
+     private void performSearch() {
+         String query = searchInput.getText().toString().trim();
+         if (!query.isEmpty()) {
+@@ -69,11 +80,140 @@
+     }
+ 
+     private void initializeSampleData() {
+-        bookList.add(new Book("Java核心技术", "Cay S. Horstmann", "机械工业出版社", "2020"));
+-        bookList.add(new Book("Android开发艺术探索", "任玉刚", "电子工业出版社", "2019"));
+-        bookList.add(new Book("算法导论", "Thomas H. Cormen", "机械工业出版社", "2013"));
+-        bookList.add(new Book("设计模式", "Gang of Four", "机械工业出版社", "2010"));
+-        bookList.add(new Book("重构", "Martin Fowler", "人民邮电出版社", "2019"));
++        bookList.add(new Book("Java核心技术", "Cay S. Horstmann", "机械工业出版社", "2020",
++                "Java领域的经典权威著作，全面覆盖Java SE 9、10、11新特性，深入讲解面向对象编程、异常处理、泛型、集合框架等核心概念，是Java开发者必备的参考书。"));
++        bookList.add(new Book("Android开发艺术探索", "任玉刚", "电子工业出版社", "2019",
++                "一线Android工程师的经典力作，深入剖析Android系统级开发的核心技术，涵盖四大组件工作原理、View体系、动画机制、Window机制等难点，帮助读者掌握Android开发精髓。"));
++        bookList.add(new Book("算法导论", "Thomas H. Cormen", "机械工业出版社", "2013",
++                "算法领域的圣经级教材，系统全面地介绍了算法设计与分析的基本概念，涵盖排序、搜索、图算法、动态规划等经典算法，配有大量习题，适合计算机专业学生和研究人员。"));
++        bookList.add(new Book("设计模式", "Gang of Four", "机械工业出版社", "2010",
++                "软件工程领域的里程碑式著作，介绍23种经典设计模式，帮助开发者编写可复用、可维护的面向对象软件，是每个程序员都应该掌握的设计原则和最佳实践。"));
++        bookList.add(new Book("重构", "Martin Fowler", "人民邮电出版社", "2019",
++                "软件开发大师Martin Fowler的经典之作，详细介绍如何在不改变软件外部行为的前提下改善代码质量，提升系统可维护性，是提高代码质量和开发效率的必读书籍。"));
++
++        bookList.add(new Book("计算机网络", "谢希仁", "电子工业出版社", "2017",
++                "国内最权威的计算机网络教材之一，系统介绍计算机网络的基本原理和关键技术，涵盖OSI模型、TCP/IP协议族、网络安全等内容，理论与实践相结合。"));
++        bookList.add(new Book("操作系统概念", "Abraham Silberschatz", "机械工业出版社", "2018",
++                "操作系统领域的经典教材，全面介绍进程管理、内存管理、文件系统、分布式系统等核心概念，帮助读者深入理解操作系统的工作原理。"));
++        bookList.add(new Book("数据库系统概念", "Abraham Silberschatz", "机械工业出版社", "2019",
++                "数据库领域的权威教材，系统阐述关系数据库理论、SQL语言、事务处理、并发控制等核心知识，理论与实践并重，适合数据库学习者和从业者。"));
++        bookList.add(new Book("编译原理", "Alfred V. Aho", "人民邮电出版社", "2013",
++                "编译器设计领域的经典教材，详细介绍词法分析、语法分析、语义分析、代码生成等编译过程，是理解和实现编程语言处理工具的重要参考资料。"));
++        bookList.add(new Book("计算机组成与设计", "David A. Patterson", "机械工业出版社", "2014",
++                "计算机体系结构领域的权威教材，从数字逻辑电路到处理器设计，全面介绍计算机硬件系统的工作原理和设计方法。"));
++
++        bookList.add(new Book("软件工程", "Ian Sommerville", "机械工业出版社", "2016",
++                "软件工程领域的标准教材，涵盖软件开发生命周期、需求工程、设计模式、测试策略等各个方面，帮助读者掌握现代软件工程的最佳实践。"));
++        bookList.add(new Book("人工智能:一种现代的方法", "Stuart Russell", "清华大学出版社", "2019",
++                "AI领域的权威教材，系统介绍智能代理、问题求解、知识表示、机器学习、自然语言处理等AI核心主题，理论与应用并重。"));
++        bookList.add(new Book("机器学习", "周志华", "清华大学出版社", "2016",
++                "被誉为\"西瓜书\"的机器学习经典教材，系统介绍监督学习、无监督学习、强化学习等各种机器学习方法，理论深入浅出，实例丰富。"));
++        bookList.add(new Book("深度学习", "Ian Goodfellow", "人民邮电出版社", "2017",
++                "深度学习领域的权威教材，由该领域顶级专家撰写，全面介绍神经网络、卷积网络、循环网络、生成模型等深度学习核心技术。"));
++        bookList.add(new Book("Python编程:从入门到实践", "Eric Matthes", "人民邮电出版社", "2016",
++                "广受欢迎的Python入门教材，通过实际项目引导读者学习Python编程，涵盖数据可视化、Web开发等应用领域，适合初学者快速上手。"));
++
++        bookList.add(new Book("代码大全", "Steve McConnell", "电子工业出版社", "2006",
++                "软件构建领域的经典著作，全面介绍软件构造的最佳实践，涵盖变量命名、控制结构、代码布局、调试技术等，帮助程序员写出高质量代码。"));
++        bookList.add(new Book("程序员修炼之道", "Andrew Hunt", "电子工业出版社", "2011",
++                "程序员必读的经典指南，介绍软件开发中的实用技巧和哲学思想，帮助程序员提升技能、改善工作流程，成为更专业的开发者。"));
++        bookList.add(new Book("人月神话", "Frederick P. Brooks", "清华大学出版社", "2015",
++                "软件项目管理的经典著作，探讨软件开发的本质复杂性和项目管理的挑战，提出的\"人月\"概念对软件工程影响深远。"));
++        bookList.add(new Book("计算机程序的构造和解释", "Harold Abelson", "机械工业出版社", "2015",
++                "MIT经典教材，使用Scheme语言讲授计算机科学核心概念，强调程序设计的思想和方法，培养计算思维能力。"));
++        bookList.add(new Book("黑客与画家", "Paul Graham", "人民邮电出版社", "2013",
++                "著名程序员Paul Graham的随笔集，探讨编程语言设计、创业经验、技术趋势等话题，充满洞察力和启发性。"));
++
++        bookList.add(new Book("数学之美", "吴军", "人民邮电出版社", "2014",
++                "揭示数学在信息技术中应用的美妙之处，涵盖自然语言处理、统计语言模型、信息检索等领域的数学原理，展现数学的力量。"));
++        bookList.add(new Book("浪潮之巅", "吴军", "电子工业出版社", "2019",
++                "全景式介绍IT产业发展的历史和规律，分析各大科技公司的兴衰成败，帮助读者理解技术变革背后的商业逻辑。"));
++        bookList.add(new Book("文明之光", "吴军", "人民邮电出版社", "2014",
++                "从科技视角审视人类文明发展，探讨科学技术对社会进步的巨大推动作用，展现科技与人文的和谐统一。"));
++        bookList.add(new Book("硅谷之谜", "吴军", "人民邮电出版社", "2015",
++                "深入解析硅谷成功的奥秘，分析创新文化、风险投资、人才聚集等因素，为科技创新提供启示。"));
++        bookList.add(new Book("大学之路", "吴军", "人民邮电出版社", "2016",
++                "探讨世界一流大学的教育理念和人才培养模式，为学生和家长提供教育选择的参考和思考。"));
++
++        bookList.add(new Book("C++ Primer", "Stanley B. Lippman", "中国电力出版社", "2013",
++                "C++学习的经典教材，全面介绍C++11标准的新特性，涵盖面向对象编程、模板、STL等核心内容，适合不同层次的C++学习者。"));
++        bookList.add(new Book("Effective Java", "Joshua Bloch", "机械工业出版社", "2019",
++                "Java编程的最佳实践指南，提供78条具体的建议帮助开发者写出更加健壮、高效、可维护的Java代码。"));
++        bookList.add(new Book("Java并发编程实战", "Brian Goetz", "机械工业出版社", "2012",
++                "深入讲解Java并发编程的核心概念和技术，涵盖线程安全、同步机制、线程池等主题，是Java并发开发的权威指南。"));
++        bookList.add(new Book("Spring实战", "Craig Walls", "人民邮电出版社", "2019",
++                "Spring框架的实用指南，详细介绍Spring Core、Spring MVC、Spring Boot等技术，帮助开发者快速掌握企业级Java开发。"));
++        bookList.add(new Book("深入理解Java虚拟机", "周志明", "机械工业出版社", "2019",
++                "深入剖析JVM工作机制，涵盖类加载机制、内存模型、垃圾回收、性能调优等高级主题，是Java高级开发者的必备参考书。"));
++
++        bookList.add(new Book("Head First Design Patterns", "Eric Freeman", "中国电力出版社", "2007",
++                "以独特的方式介绍设计模式，通过大量图表、练习和幽默元素帮助读者轻松掌握23种经典设计模式及其应用场景。"));
++        bookList.add(new Book("JavaScript高级程序设计", "Nicholas C. Zakas", "人民邮电出版社", "2019",
++                "JavaScript学习的权威教材，全面介绍JavaScript语言核心、DOM编程、事件处理、Ajax等Web开发技术，适合前端开发者深入学习。"));
++        bookList.add(new Book("你不知道的JavaScript", "Kyle Simpson", "人民邮电出版社", "2015",
++                "深入挖掘JavaScript语言的核心机制和工作原理，帮助开发者真正理解JavaScript的作用域、闭包、this绑定等重要概念。"));
++        bookList.add(new Book("CSS权威指南", "Eric A. Meyer", "中国电力出版社", "2013",
++                "CSS领域的权威参考书，详细介绍CSS选择器、盒模型、定位、浮动等核心概念，帮助开发者掌握网页样式设计的精髓。"));
++        bookList.add(new Book("HTML5权威指南", "Adam Freeman", "人民邮电出版社", "2014",
++                "全面介绍HTML5新特性的实用指南，涵盖语义化标签、表单增强、多媒体支持、本地存储等技术，是Web开发者的重要参考。"));
++
++        bookList.add(new Book("Node.js开发指南", "郭家宝", "人民邮电出版社", "2012",
++                "Node.js入门与实践的经典教材，介绍服务器端JavaScript开发的基础知识和实际应用，帮助开发者快速掌握全栈开发技能。"));
++        bookList.add(new Book("React学习手册", "Alex Banks", "人民邮电出版社", "2017",
++                "React框架的学习指南，详细介绍组件化开发、状态管理、路由配置等核心技术，通过实例帮助读者掌握现代前端开发。"));
++        bookList.add(new Book("Vue.js实战", "梁灏", "电子工业出版社", "2019",
++                "Vue.js框架的实践指南，从基础概念到项目实战，全面介绍Vue的核心特性和生态系统，适合前端开发者学习和应用。"));
++        bookList.add(new Book("Angular权威教程", "Rangle.io", "人民邮电出版社", "2019",
++                "Angular框架的权威教程，系统介绍TypeScript、组件、依赖注入、路由等Angular核心技术，帮助开发者构建复杂的单页应用。"));
++        bookList.add(new Book("Webpack实战", "居玉浩", "电子工业出版社", "2018",
++                "前端构建工具Webpack的实战指南，详细介绍模块打包、代码分割、性能优化等技术，帮助开发者提升前端工程化水平。"));
++
++        bookList.add(new Book("Docker技术入门与实战", "杨保华", "机械工业出版社", "2018",
++                "容器技术Docker的入门与实践指南，介绍镜像制作、容器管理、网络配置、数据持久化等核心技术，帮助开发者快速掌握容器化部署。"));
++        bookList.add(new Book("Kubernetes权威指南", "龚正", "电子工业出版社", "2019",
++                "容器编排平台Kubernetes的权威指南，全面介绍Pod、Service、Deployment等核心概念，帮助读者掌握容器集群管理技术。"));
++        bookList.add(new Book("微服务架构设计模式", "Chris Richardson", "机械工业出版社", "2019",
++                "微服务架构的设计模式和实践指南，介绍服务拆分、数据管理、服务发现、容错处理等关键技术，帮助开发者构建可靠的分布式系统。"));
++        bookList.add(new Book("领域驱动设计", "Eric Evans", "人民邮电出版社", "2018",
++                "软件设计方法学的经典著作，介绍如何通过领域建模解决复杂业务问题，提出实体、值对象、聚合根等核心概念，是复杂系统设计的指导原则。"));
++        bookList.add(new Book("敏捷软件开发", "Robert C. Martin", "清华大学出版社", "2003",
++                "敏捷开发方法的经典教材，介绍敏捷宣言的原则和实践，涵盖Scrum、极限编程等具体方法，帮助团队提高软件开发效率。"));
++
++        bookList.add(new Book("测试驱动开发", "Kent Beck", "中国电力出版社", "2004",
++                "测试驱动开发(TDD)的经典著作，详细介绍红绿重构的开发循环，帮助开发者通过测试先行的方式提高代码质量和设计水平。"));
++        bookList.add(new Book("持续交付", "Jez Humble", "人民邮电出版社", "2011",
++                "软件交付领域的权威指南，介绍如何通过自动化构建、测试、部署实现快速可靠的软件发布，提升软件交付效率和质量。"));
++        bookList.add(new Book("DevOps实践指南", "Gene Kim", "人民邮电出版社", "2017",
++                "DevOps理念和实践的全面指南，介绍如何打破开发与运维之间的壁垒，通过文化和技术手段实现高效的软件交付。"));
++        bookList.add(new Book("Linux命令行与shell脚本编程大全", "Richard Blum", "人民邮电出版社", "2016",
++                "Linux系统管理和Shell编程的权威指南，详细介绍常用命令、文本处理、进程管理、脚本编写等技能，是Linux用户的必备参考。"));
++        bookList.add(new Book("鸟哥的Linux私房菜", "鸟哥", "人民邮电出版社", "2017",
++                "最受欢迎的Linux入门教材之一，从基础概念到系统管理，循序渐进地介绍Linux系统的使用和管理技巧。"));
++
++        bookList.add(new Book("UNIX环境高级编程", "W. Richard Stevens", "人民邮电出版社", "2014",
++                "UNIX系统编程的经典教材，详细介绍进程控制、信号处理、文件I/O、网络编程等系统级编程技术，是UNIX/Linux开发者的重要参考。"));
++        bookList.add(new Book("TCP/IP详解 卷1", "W. Richard Stevens", "机械工业出版社", "2016",
++                "网络协议领域的权威著作，深入剖析TCP/IP协议族的工作原理和实现细节，是网络程序员和系统管理员的必备参考书。"));
++        bookList.add(new Book("图解TCP/IP", "竹下隆史", "人民邮电出版社", "2012",
++                "以图文并茂的方式介绍TCP/IP协议，通过大量图解帮助读者直观理解网络通信原理，适合网络技术初学者入门。"));
++        bookList.add(new Book("网络安全基础", "William Stallings", "清华大学出版社", "2017",
++                "网络安全领域的基础教材，介绍加密算法、认证机制、防火墙、入侵检测等安全技术，帮助读者建立完整的安全知识体系。"));
++        bookList.add(new Book("加密与解密", "看雪学院", "电子工业出版社", "2015",
++                "信息安全技术的实践指南，详细介绍密码学原理、加密算法实现、逆向工程等技术，是安全研究人员的重要参考资料。"));
++
++        bookList.add(new Book("游戏设计艺术", "Jesse Schell", "电子工业出版社", "2015",
++                "游戏设计领域的权威教材，系统介绍游戏设计的基本原理和方法，涵盖玩家心理学、游戏机制、叙事设计等核心主题。"));
++        bookList.add(new Book("Unity 3D游戏开发", "宣雨松", "人民邮电出版社", "2018",
++                "Unity游戏引擎的实用教程，从基础操作到高级技巧，详细介绍3D游戏开发的各个环节，帮助开发者快速掌握游戏制作技能。"));
++        bookList.add(new Book("虚幻引擎4从入门到精通", "罗金海", "清华大学出版社", "2019",
++                "虚幻引擎4的学习指南，介绍材质系统、蓝图编程、动画系统等核心技术，通过实例教学帮助读者掌握专业级游戏开发。"));
++        bookList.add(new Book("移动应用UI设计模式", "Theresa Neil", "人民邮电出版社", "2014",
++                "移动应用界面设计的模式库，介绍各种UI组件和交互模式的最佳实践，帮助设计师创建直观易用的移动应用界面。"));
++        bookList.add(new Book("写给大家看的设计书", "Robin Williams", "人民邮电出版社", "2015",
++                "设计入门的经典教材，介绍对比、重复、对齐、亲密性四大设计原则，帮助非设计专业人员提升视觉设计能力。"));
++
+         bookAdapter.updateList(bookList);
+     }
++
++
+ }
+Index: app/src/main/res/values/strings.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><resources>\r\n    <string name=\"app_name\">北航图书馆</string>\r\n</resources>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/res/values/strings.xml b/app/src/main/res/values/strings.xml
+--- a/app/src/main/res/values/strings.xml	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/res/values/strings.xml	(date 1764490633738)
+@@ -1,3 +1,5 @@
+ <resources>
+     <string name="app_name">北航图书馆</string>
++    <string name="back_button_text">返回</string>
++    <string name="book_description_label">图书简介:</string>
+ </resources>
+\ No newline at end of file
+Index: app/src/main/java/com/example/client/StudyStatsFragment.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.client;\r\n\r\nimport android.os.Bundle;\r\nimport android.os.Handler;\r\nimport android.os.Looper;\r\nimport android.view.LayoutInflater;\r\nimport android.view.View;\r\nimport android.view.ViewGroup;\r\nimport android.widget.TextView;\r\nimport androidx.fragment.app.Fragment;\r\nimport java.util.Calendar;\r\nimport java.util.Date;\r\nimport java.util.List;\r\nimport java.util.concurrent.Executor;\r\nimport java.util.concurrent.Executors;\r\n\r\npublic class StudyStatsFragment extends Fragment {\r\n\r\n    private TextView totalTimeText;\r\n    private AppDataBase db;\r\n    private final Executor executor = Executors.newSingleThreadExecutor();\r\n    private final Handler handler = new Handler(Looper.getMainLooper());\r\n\r\n    public StudyStatsFragment() {\r\n        // Required empty public constructor\r\n    }\r\n\r\n    @Override\r\n    public View onCreateView(LayoutInflater inflater, ViewGroup container,\r\n                             Bundle savedInstanceState) {\r\n        View view = inflater.inflate(R.layout.fragment_study_stats, container, false);\r\n        db = AppDataBase.getInstance(getContext());\r\n        totalTimeText = view.findViewById(R.id.total_time_text);\r\n        return view;\r\n    }\r\n\r\n    @Override\r\n    public void onResume() {\r\n        super.onResume();\r\n        updateStats();\r\n    }\r\n\r\n    private void updateStats() {\r\n        executor.execute(() -> {\r\n            // Calculate the start and end of the current week (Monday to Sunday)\r\n            Calendar cal = Calendar.getInstance();\r\n            // Set the calendar to the first day of the week (Monday)\r\n            cal.setFirstDayOfWeek(Calendar.MONDAY);\r\n            cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);\r\n            cal.set(Calendar.HOUR_OF_DAY, 0);\r\n            cal.set(Calendar.MINUTE, 0);\r\n            cal.set(Calendar.SECOND, 0);\r\n            cal.set(Calendar.MILLISECOND, 0);\r\n            Date weekStart = cal.getTime();\r\n\r\n            // Move to the end of the week (Sunday)\r\n            cal.add(Calendar.DAY_OF_YEAR, 6);\r\n            cal.set(Calendar.HOUR_OF_DAY, 23);\r\n            cal.set(Calendar.MINUTE, 59);\r\n            cal.set(Calendar.SECOND, 59);\r\n            cal.set(Calendar.MILLISECOND, 999);\r\n            Date weekEnd = cal.getTime();\r\n\r\n            // Fetch records for the current week\r\n            List<StudyRecord> weeklyRecords = db.studyRecordDao().getStudyRecordsBetween(weekStart, weekEnd);\r\n\r\n            long totalMillis = 0;\r\n            for (StudyRecord record : weeklyRecords) {\r\n                if (record.endTime != null && record.startTime != null) {\r\n                    totalMillis += (record.endTime.getTime() - record.startTime.getTime());\r\n                }\r\n            }\r\n\r\n            // Convert milliseconds to hours\r\n            double totalHours = totalMillis / (1000.0 * 60 * 60);\r\n\r\n            handler.post(() -> {\r\n                totalTimeText.setText(String.format(\"本周总学习时长: %.1f 小时\", totalHours));\r\n            });\r\n        });\r\n    }\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/client/StudyStatsFragment.java b/app/src/main/java/com/example/client/StudyStatsFragment.java
+--- a/app/src/main/java/com/example/client/StudyStatsFragment.java	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/java/com/example/client/StudyStatsFragment.java	(date 1764490633726)
+@@ -1,5 +1,6 @@
+ package com.example.client;
+ 
++import android.graphics.Color;
+ import android.os.Bundle;
+ import android.os.Handler;
+ import android.os.Looper;
+@@ -7,19 +8,36 @@
+ import android.view.View;
+ import android.view.ViewGroup;
+ import android.widget.TextView;
++
+ import androidx.fragment.app.Fragment;
++
++import com.example.client.StatisticsChartView.ChartData;
++
++import java.text.SimpleDateFormat;
++import java.util.ArrayList;
+ import java.util.Calendar;
+ import java.util.Date;
+ import java.util.List;
++import java.util.Locale;
+ import java.util.concurrent.Executor;
+ import java.util.concurrent.Executors;
+ 
+ public class StudyStatsFragment extends Fragment {
+ 
+-    private TextView totalTimeText;
++    private TextView dailyTotalTimeText;
++    private TextView dailyStartTimeText;
++    private TextView dailyEndTimeText;
++    private TextView weeklyTotalTimeText;
++    private StatisticsChartView dailyChart;
++    private StatisticsChartView weeklyChart;
++    
+     private AppDataBase db;
+     private final Executor executor = Executors.newSingleThreadExecutor();
+     private final Handler handler = new Handler(Looper.getMainLooper());
++    
++    // For demo purposes, we'll use a fixed student ID
++    // In a real app, this would be retrieved from the logged-in user session
++    private static final int STUDENT_ID = 1;
+ 
+     public StudyStatsFragment() {
+         // Required empty public constructor
+@@ -28,9 +46,21 @@
+     @Override
+     public View onCreateView(LayoutInflater inflater, ViewGroup container,
+                              Bundle savedInstanceState) {
+-        View view = inflater.inflate(R.layout.fragment_study_stats, container, false);
++        View view = inflater.inflate(R.layout.fragment_study_stats_enhanced, container, false);
+         db = AppDataBase.getInstance(getContext());
+-        totalTimeText = view.findViewById(R.id.total_time_text);
++        
++        // Initialize views
++        dailyTotalTimeText = view.findViewById(R.id.daily_total_time);
++        dailyStartTimeText = view.findViewById(R.id.daily_start_time);
++        dailyEndTimeText = view.findViewById(R.id.daily_end_time);
++        weeklyTotalTimeText = view.findViewById(R.id.weekly_total_time);
++        dailyChart = view.findViewById(R.id.daily_chart);
++        weeklyChart = view.findViewById(R.id.weekly_chart);
++        
++        // Set chart types
++        dailyChart.setChartType(StatisticsChartView.ChartType.PIE_CHART);
++        weeklyChart.setChartType(StatisticsChartView.ChartType.BAR_CHART);
++        
+         return view;
+     }
+ 
+@@ -41,6 +71,70 @@
+     }
+ 
+     private void updateStats() {
++        updateDailyStats();
++        updateWeeklyStats();
++    }
++
++    private void updateDailyStats() {
++        executor.execute(() -> {
++            // Get today's date range
++            Calendar cal = Calendar.getInstance();
++            cal.set(Calendar.HOUR_OF_DAY, 0);
++            cal.set(Calendar.MINUTE, 0);
++            cal.set(Calendar.SECOND, 0);
++            cal.set(Calendar.MILLISECOND, 0);
++            Date dayStart = cal.getTime();
++            
++            cal.set(Calendar.HOUR_OF_DAY, 23);
++            cal.set(Calendar.MINUTE, 59);
++            cal.set(Calendar.SECOND, 59);
++            cal.set(Calendar.MILLISECOND, 999);
++            Date dayEnd = cal.getTime();
++            
++            // Fetch records for today
++            List<StudyRecord> dailyRecords = db.studyRecordDao().getStudyRecordsForDate(STUDENT_ID, dayStart);
++            
++            long totalMillis = 0;
++            Date earliestStart = null;
++            Date latestEnd = null;
++            
++            for (StudyRecord record : dailyRecords) {
++                if (record.endTime != null && record.startTime != null) {
++                    totalMillis += (record.endTime.getTime() - record.startTime.getTime());
++                    
++                    if (earliestStart == null || record.startTime.before(earliestStart)) {
++                        earliestStart = record.startTime;
++                    }
++                    
++                    if (latestEnd == null || record.endTime.after(latestEnd)) {
++                        latestEnd = record.endTime;
++                    }
++                }
++            }
++            
++            // Convert milliseconds to hours
++            double totalHours = totalMillis / (1000.0 * 60 * 60);
++            
++            // Format times
++            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm", Locale.getDefault());
++            String startTimeStr = earliestStart != null ? timeFormat.format(earliestStart) : "--:--";
++            String endTimeStr = latestEnd != null ? timeFormat.format(latestEnd) : "--:--";
++            
++            // Prepare chart data
++            List<ChartData> chartData = new ArrayList<>();
++            chartData.add(new ChartData("学习时间", (float) totalHours, Color.BLUE));
++            chartData.add(new ChartData("未学习", Math.max(0, 24 - (float) totalHours), Color.LTGRAY));
++            
++            handler.post(() -> {
++                dailyTotalTimeText.setText(String.format("今日总学习时长: %.1f 小时", totalHours));
++                dailyStartTimeText.setText("开始时间: " + startTimeStr);
++                dailyEndTimeText.setText("结束时间: " + endTimeStr);
++                dailyChart.setChartData(chartData);
++            });
++        });
++    }
++
++    private void updateWeeklyStats() {
+         executor.execute(() -> {
+             // Calculate the start and end of the current week (Monday to Sunday)
+             Calendar cal = Calendar.getInstance();
+@@ -62,21 +156,48 @@
+             Date weekEnd = cal.getTime();
+ 
+             // Fetch records for the current week
+-            List<StudyRecord> weeklyRecords = db.studyRecordDao().getStudyRecordsBetween(weekStart, weekEnd);
++            List<StudyRecord> weeklyRecords = db.studyRecordDao().getStudyRecordsForWeek(STUDENT_ID, weekStart, weekEnd);
+ 
++            // Calculate daily totals
++            double[] dailyHours = new double[7];
+             long totalMillis = 0;
++            
+             for (StudyRecord record : weeklyRecords) {
+                 if (record.endTime != null && record.startTime != null) {
+-                    totalMillis += (record.endTime.getTime() - record.startTime.getTime());
++                    long duration = record.endTime.getTime() - record.startTime.getTime();
++                    totalMillis += duration;
++                    
++                    // Determine which day this record belongs to
++                    Calendar recordCal = Calendar.getInstance();
++                    recordCal.setTime(record.startTime);
++                    
++                    int dayOfWeek = recordCal.get(Calendar.DAY_OF_WEEK);
++                    // Adjust for Monday-based week (Calendar.MONDAY=2 ... Calendar.SUNDAY=1)
++                    int dayIndex = (dayOfWeek + 5) % 7; // Monday=0, Sunday=6
++                    
++                    dailyHours[dayIndex] += duration / (1000.0 * 60 * 60);
+                 }
+             }
+ 
+-            // Convert milliseconds to hours
++            // Convert total milliseconds to hours
+             double totalHours = totalMillis / (1000.0 * 60 * 60);
+ 
++            // Prepare chart data
++            List<ChartData> chartData = new ArrayList<>();
++            String[] dayLabels = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
++            int[] colors = {
++                Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW, 
++                Color.MAGENTA, Color.CYAN, Color.parseColor("#FF9800")
++            };
++            
++            for (int i = 0; i < 7; i++) {
++                chartData.add(new ChartData(dayLabels[i], (float) dailyHours[i], colors[i]));
++            }
++            
+             handler.post(() -> {
+-                totalTimeText.setText(String.format("本周总学习时长: %.1f 小时", totalHours));
++                weeklyTotalTimeText.setText(String.format("本周总学习时长: %.1f 小时", totalHours));
++                weeklyChart.setChartData(chartData);
+             });
+         });
+     }
+-}
++}
+\ No newline at end of file
+Index: app/build.gradle.kts
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>plugins {\r\n    alias(libs.plugins.android.application)\r\n    alias(libs.plugins.kotlin.android)\r\n    alias(libs.plugins.kotlin.compose)\r\n\r\n    id(\"com.google.devtools.ksp\")\r\n}\r\n\r\nandroid {\r\n    namespace = \"com.example.client\"\r\n    compileSdk = 36\r\n\r\n    defaultConfig {\r\n        applicationId = \"com.example.client\"\r\n        minSdk = 24\r\n        targetSdk = 36\r\n        versionCode = 1\r\n        versionName = \"1.0\"\r\n\r\n        testInstrumentationRunner = \"androidx.test.runner.AndroidJUnitRunner\"\r\n    }\r\n\r\n    buildTypes {\r\n        release {\r\n            isMinifyEnabled = false\r\n            proguardFiles(\r\n                getDefaultProguardFile(\"proguard-android-optimize.txt\"),\r\n                \"proguard-rules.pro\"\r\n            )\r\n        }\r\n    }\r\n    compileOptions {\r\n        sourceCompatibility = JavaVersion.VERSION_11\r\n        targetCompatibility = JavaVersion.VERSION_11\r\n    }\r\n    kotlinOptions {\r\n        jvmTarget = \"11\"\r\n    }\r\n    buildFeatures {\r\n        compose = true\r\n    }\r\n}\r\n\r\ndependencies {\r\n\r\n    implementation(libs.androidx.core.ktx)\r\n    implementation(libs.androidx.lifecycle.runtime.ktx)\r\n    implementation(libs.androidx.activity.compose)\r\n    implementation(platform(libs.androidx.compose.bom))\r\n    implementation(libs.androidx.compose.ui)\r\n    implementation(libs.androidx.compose.ui.graphics)\r\n    implementation(libs.androidx.compose.ui.tooling.preview)\r\n    implementation(libs.androidx.compose.material3)\r\n    implementation(libs.androidx.appcompat)\r\n    implementation(libs.material)\r\n    implementation(libs.androidx.activity)\r\n    implementation(libs.androidx.constraintlayout)\r\n    testImplementation(libs.junit)\r\n    androidTestImplementation(libs.androidx.junit)\r\n    androidTestImplementation(libs.androidx.espresso.core)\r\n    androidTestImplementation(platform(libs.androidx.compose.bom))\r\n    androidTestImplementation(libs.androidx.compose.ui.test.junit4)\r\n    debugImplementation(libs.androidx.compose.ui.tooling)\r\n    debugImplementation(libs.androidx.compose.ui.test.manifest)\r\n}\r\ndependencies {\r\n    implementation(libs.androidx.room.common.jvm)\r\n    val room_version = \"2.6.1\"\r\n\r\n    implementation(\"androidx.room:room-runtime:$room_version\")\r\n    ksp(\"androidx.room:room-compiler:$room_version\")\r\n}
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/build.gradle.kts b/app/build.gradle.kts
+--- a/app/build.gradle.kts	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/build.gradle.kts	(date 1764490633684)
+@@ -55,6 +55,7 @@
+     implementation(libs.material)
+     implementation(libs.androidx.activity)
+     implementation(libs.androidx.constraintlayout)
++    implementation(libs.androidx.cardview)
+     testImplementation(libs.junit)
+     androidTestImplementation(libs.androidx.junit)
+     androidTestImplementation(libs.androidx.espresso.core)
+Index: app/src/main/java/com/example/client/StudyRecordDao.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.client;\r\n\r\nimport androidx.room.Dao;\r\nimport androidx.room.Insert;\r\nimport androidx.room.Query;\r\nimport androidx.room.Update;\r\nimport java.util.Date;\r\nimport java.util.List;\r\n\r\n@Dao\r\npublic interface StudyRecordDao {\r\n    @Insert\r\n    void insert(StudyRecord studyRecord);\r\n\r\n    @Update\r\n    void update(StudyRecord studyRecord);\r\n\r\n    @Query(\"SELECT * FROM study_records WHERE studentId = :studentId AND endTime IS NULL\")\r\n    StudyRecord getCurrentStudyRecordForStudent(int studentId);\r\n\r\n    @Query(\"SELECT * FROM study_records WHERE studentId = :studentId AND seatId = :seatId AND endTime IS NULL\")\r\n    StudyRecord findActiveStudyRecordByStudentAndSeat(int studentId, int seatId);\r\n\r\n    @Query(\"SELECT * FROM study_records WHERE endTime IS NULL\")\r\n    List<StudyRecord> getAllActiveStudyRecords();\r\n\r\n    @Query(\"SELECT * FROM study_records WHERE startTime BETWEEN :startDate AND :endDate AND endTime IS NOT NULL\")\r\n    List<StudyRecord> getStudyRecordsBetween(Date startDate, Date endDate);\r\n}\r\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/app/src/main/java/com/example/client/StudyRecordDao.java b/app/src/main/java/com/example/client/StudyRecordDao.java
+--- a/app/src/main/java/com/example/client/StudyRecordDao.java	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/java/com/example/client/StudyRecordDao.java	(date 1764490633722)
+@@ -26,4 +26,10 @@
+ 
+     @Query("SELECT * FROM study_records WHERE startTime BETWEEN :startDate AND :endDate AND endTime IS NOT NULL")
+     List<StudyRecord> getStudyRecordsBetween(Date startDate, Date endDate);
+-}
++    
++    @Query("SELECT * FROM study_records WHERE studentId = :studentId AND DATE(startTime) = DATE(:date) AND endTime IS NOT NULL")
++    List<StudyRecord> getStudyRecordsForDate(int studentId, Date date);
++    
++    @Query("SELECT * FROM study_records WHERE studentId = :studentId AND DATE(startTime) BETWEEN DATE(:weekStart) AND DATE(:weekEnd) AND endTime IS NOT NULL")
++    List<StudyRecord> getStudyRecordsForWeek(int studentId, Date weekStart, Date weekEnd);
++}
+\ No newline at end of file
+Index: .idea/deploymentTargetSelector.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"deploymentTargetSelector\">\r\n    <selectionStates>\r\n      <SelectionState runConfigName=\"app\">\r\n        <option name=\"selectionMode\" value=\"DROPDOWN\" />\r\n        <DropdownSelection timestamp=\"2025-11-26T08:15:19.568703100Z\">\r\n          <Target type=\"DEFAULT_BOOT\">\r\n            <handle>\r\n              <DeviceId pluginId=\"LocalEmulator\" identifier=\"path=C:\\Users\\32179\\.android\\avd\\Small_Phone.avd\" />\r\n            </handle>\r\n          </Target>\r\n        </DropdownSelection>\r\n        <DialogSelection />\r\n      </SelectionState>\r\n    </selectionStates>\r\n  </component>\r\n</project>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/deploymentTargetSelector.xml b/.idea/deploymentTargetSelector.xml
+--- a/.idea/deploymentTargetSelector.xml	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/.idea/deploymentTargetSelector.xml	(date 1764490633680)
+@@ -4,10 +4,10 @@
+     <selectionStates>
+       <SelectionState runConfigName="app">
+         <option name="selectionMode" value="DROPDOWN" />
+-        <DropdownSelection timestamp="2025-11-26T08:15:19.568703100Z">
++        <DropdownSelection timestamp="2025-11-30T06:57:41.932301700Z">
+           <Target type="DEFAULT_BOOT">
+             <handle>
+-              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\32179\.android\avd\Small_Phone.avd" />
++              <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\19532\.android\avd\Medium_Phone.avd" />
+             </handle>
+           </Target>
+         </DropdownSelection>

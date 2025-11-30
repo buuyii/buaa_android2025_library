@@ -1,3 +1,4 @@
+// BookAdapter.java
 package com.example.client;
 
 import android.view.LayoutInflater;
@@ -14,9 +15,18 @@ import java.util.List;
 public class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder> {
 
     private List<Book> bookList;
+    private OnBookClickListener listener;
+
+    public interface OnBookClickListener {
+        void onBookClick(Book book);
+    }
 
     public BookAdapter(List<Book> bookList) {
         this.bookList = bookList != null ? bookList : new ArrayList<>();
+    }
+
+    public void setOnBookClickListener(OnBookClickListener listener) {
+        this.listener = listener;
     }
 
     @NonNull
@@ -34,6 +44,13 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder
         holder.authorText.setText("作者: " + book.getAuthor());
         holder.publisherText.setText("出版社: " + book.getPublisher());
         holder.yearText.setText("出版年份: " + book.getYear());
+
+        // 设置整个项目的点击监听器
+        holder.itemView.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onBookClick(book);
+            }
+        });
     }
 
     @Override

@@ -1,0 +1,157 @@
+Index: app/src/main/java/com/example/client/BookDetailFragment.java
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>package com.example.client;\r\n\r\npublic class BookDetailFragment {\r\n}\r\n
+===================================================================
+diff --git a/app/src/main/java/com/example/client/BookDetailFragment.java b/app/src/main/java/com/example/client/BookDetailFragment.java
+--- a/app/src/main/java/com/example/client/BookDetailFragment.java	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/java/com/example/client/BookDetailFragment.java	(date 1764490633703)
+@@ -1,4 +1,66 @@
++// BookDetailFragment.java
+ package com.example.client;
+ 
+-public class BookDetailFragment {
+-}
++import android.os.Bundle;
++import android.view.LayoutInflater;
++import android.view.View;
++import android.view.ViewGroup;
++import android.widget.Button;
++import android.widget.TextView;
++
++import androidx.fragment.app.Fragment;
++
++public class BookDetailFragment extends Fragment {
++
++    private static final String ARG_BOOK = "book";
++    private Book book;
++
++    public BookDetailFragment() {
++        // Required empty public constructor
++    }
++
++    public static BookDetailFragment newInstance(Book book) {
++        BookDetailFragment fragment = new BookDetailFragment();
++        Bundle args = new Bundle();
++        args.putSerializable(ARG_BOOK, book);
++        fragment.setArguments(args);
++        return fragment;
++    }
++
++    @Override
++    public void onCreate(Bundle savedInstanceState) {
++        super.onCreate(savedInstanceState);
++        if (getArguments() != null) {
++            book = (Book) getArguments().getSerializable(ARG_BOOK);
++        }
++    }
++
++    @Override
++    public View onCreateView(LayoutInflater inflater, ViewGroup container,
++                             Bundle savedInstanceState) {
++        View view = inflater.inflate(R.layout.fragment_book_detail, container, false);
++
++        TextView titleText = view.findViewById(R.id.detail_title);
++        TextView authorText = view.findViewById(R.id.detail_author);
++        TextView publisherText = view.findViewById(R.id.detail_publisher);
++        TextView yearText = view.findViewById(R.id.detail_year);
++        TextView descriptionText = view.findViewById(R.id.detail_description); // 新增
++        Button backButton = view.findViewById(R.id.back_button);
++
++        if (book != null) {
++            titleText.setText(book.getTitle());
++            authorText.setText("作者: " + book.getAuthor());
++            publisherText.setText("出版社: " + book.getPublisher());
++            yearText.setText("出版年份: " + book.getYear());
++            descriptionText.setText(book.getDescription()); // 设置简介内容
++        }
++
++        backButton.setOnClickListener(v -> {
++            if (getActivity() != null) {
++                getActivity().getSupportFragmentManager().popBackStack();
++            }
++        });
++
++        return view;
++    }
++}
+\ No newline at end of file
+Index: app/src/main/res/layout/fragment_book_detail.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n<androidx.constraintlayout.widget.ConstraintLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\r\n             android:layout_width=\"match_parent\"\r\n             android:layout_height=\"match_parent\">\r\n\r\n</androidx.constraintlayout.widget.ConstraintLayout>
+===================================================================
+diff --git a/app/src/main/res/layout/fragment_book_detail.xml b/app/src/main/res/layout/fragment_book_detail.xml
+--- a/app/src/main/res/layout/fragment_book_detail.xml	(revision eb6a2241610a8cc6168658e9aac4e36a5472269b)
++++ b/app/src/main/res/layout/fragment_book_detail.xml	(date 1764490633730)
+@@ -1,6 +1,64 @@
+ <?xml version="1.0" encoding="utf-8"?>
+-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+-             android:layout_width="match_parent"
+-             android:layout_height="match_parent">
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:orientation="vertical"
++    android:padding="16dp">
++
++    <TextView
++        android:id="@+id/detail_title"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:textSize="24sp"
++        android:textStyle="bold"
++        android:gravity="center"
++        android:layout_marginBottom="24dp" />
++
++    <TextView
++        android:id="@+id/detail_author"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:textSize="18sp"
++        android:layout_marginBottom="16dp" />
++
++    <TextView
++        android:id="@+id/detail_publisher"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:textSize="18sp"
++        android:layout_marginBottom="16dp" />
++
++    <TextView
++        android:id="@+id/detail_year"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:textSize="18sp"
++        android:layout_marginBottom="16dp" />
++
++    <!-- 添加图书简介部分 -->
++    <TextView
++        android:id="@+id/detail_description_label"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:text="图书简介:"
++        android:textSize="18sp"
++        android:textStyle="bold"
++        android:layout_marginTop="16dp"
++        android:layout_marginBottom="8dp" />
++
++    <TextView
++        android:id="@+id/detail_description"
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:textSize="16sp"
++        android:lineSpacingExtra="4dp"
++        android:layout_marginBottom="24dp" />
++
++    <Button
++        android:id="@+id/back_button"
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:text="@string/back_button_text"
++        android:layout_gravity="center" />
+ 
+-</androidx.constraintlayout.widget.ConstraintLayout>
+\ No newline at end of file
++</LinearLayout>
+\ No newline at end of file

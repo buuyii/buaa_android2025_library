@@ -99,17 +99,8 @@ public class BookSearchFragment extends Fragment {
     }
     
     private void showSearchHistory() {
-        // 创建一个临时的搜索历史列表（在实际应用中，这些数据应该从数据库或SharedPreferences中获取）
-        List<Book> searchHistory = new ArrayList<>();
-        if (bookList.size() > 0) {
-            searchHistory.add(bookList.get(0));
-        }
-        if (bookList.size() > 5) {
-            searchHistory.add(bookList.get(5));
-        }
-        if (bookList.size() > 10) {
-            searchHistory.add(bookList.get(10));
-        }
+        // 获取最新的搜索历史记录
+        List<Book> searchHistory = SearchHistoryManager.getInstance().getSearchHistory();
         
         BookListFragment searchHistoryFragment = BookListFragment.newInstance("搜索历史", searchHistory);
         if (getActivity() != null) {

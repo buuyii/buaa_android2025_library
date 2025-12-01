@@ -57,6 +57,9 @@ public class BookDetailFragment extends Fragment {
             yearText.setText("出版年份: " + book.getYear());
             descriptionText.setText(book.getDescription()); // 设置简介内容
             
+            // 将图书添加到搜索历史
+            SearchHistoryManager.getInstance().addBookToHistory(book);
+            
             // 检查图书是否已被收藏，设置按钮初始状态
             updateFavoriteButtonState();
             

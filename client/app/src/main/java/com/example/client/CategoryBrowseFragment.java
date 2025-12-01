@@ -1,23 +1,29 @@
 // CategoryBrowseFragment.java
 package com.example.client;
 
+import android.graphics.Color;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ExpandableListView;
-import android.widget.Toast;
+import android.widget.LinearLayout;
 
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class CategoryBrowseFragment extends Fragment {
+public class CategoryBrowseFragment extends Fragment implements BookAdapter.OnBookClickListener {
 
-    private ExpandableListView expandableListView;
-    private CategoryExpandableListAdapter adapter;
+    private RecyclerView booksRecyclerView;
+    private BookAdapter bookAdapter;
+    private LinearLayout categoriesContainer;
     private List<String> categoryList;
     private HashMap<String, List<Book>> categoryBooksMap;
 
@@ -30,30 +36,58 @@ public class CategoryBrowseFragment extends Fragment {
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_category_browse, container, false);
         
-        expandableListView = view.findViewById(R.id.category_expandable_list);
+        booksRecyclerView = view.findViewById(R.id.books_recycler_view);
+        categoriesContainer = view.findViewById(R.id.categories_container);
         
         initData();
         
-        adapter = new CategoryExpandableListAdapter(getContext(), categoryList, categoryBooksMap);
-        expandableListView.setAdapter(adapter);
+        // Setup RecyclerView
+        bookAdapter = new BookAdapter(new ArrayList<>());
+        bookAdapter.setOnBookClickListener(this);
+        booksRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        booksRecyclerView.setAdapter(bookAdapter);
         
-        // Set click listener for child items (books)
-        expandableListView.setOnChildClickListener((parent, v, groupPosition, childPosition, id) -> {
-            String category = categoryList.get(groupPosition);
-            Book book = categoryBooksMap.get(category).get(childPosition);
-            
-            BookDetailFragment detailFragment = BookDetailFragment.newInstance(book);
-            if (getActivity() != null) {
-                getActivity().getSupportFragmentManager()
-                        .beginTransaction()
-                        .replace(R.id.fragment_container, detailFragment)
-                        .addToBackStack(null)
-                        .commit();
-            }
-            return true;
-        });
+        // Create category buttons
+        createCategoryButtons();
+        
+        // Show books of the first category by default
+        if (!categoryList.isEmpty()) {
+            showBooksForCategory(categoryList.get(0));
+        }
         
         return view;
+    }
+    
+    private void createCategoryButtons() {
+        for (String category : categoryList) {
+            MaterialButton categoryButton = new MaterialButton(getContext());
+            categoryButton.setText(category);
+            
+            // Set button styles
+            categoryButton.setBackgroundColor(getResources().getColor(R.color.blue_500));
+            categoryButton.setTextColor(Color.WHITE);
+            categoryButton.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16); // Larger text size
+            
+            // Set corner radius for rounded corners
+            categoryButton.setCornerRadius(20);
+            
+            // Set layout parameters with margins
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            params.setMargins(0, 0, 32, 0); // Add some spacing between buttons (right margin)
+            categoryButton.setLayoutParams(params);
+            
+            categoryButton.setOnClickListener(v -> showBooksForCategory(category));
+            
+            categoriesContainer.addView(categoryButton);
+        }
+    }
+    
+    private void showBooksForCategory(String category) {
+        List<Book> books = categoryBooksMap.get(category);
+        bookAdapter.updateList(books);
     }
     
     private void initData() {
@@ -127,6 +161,18 @@ public class CategoryBrowseFragment extends Fragment {
             if (!categoryBooksMap.containsKey(category)) {
                 categoryBooksMap.put(category, new ArrayList<>());
             }
+        }
+    }
+
+    @Override
+    public void onBookClick(Book book) {
+        BookDetailFragment detailFragment = BookDetailFragment.newInstance(book);
+        if (getActivity() != null) {
+            getActivity().getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.fragment_container, detailFragment)
+                    .addToBackStack(null)
+                    .commit();
         }
     }
 }

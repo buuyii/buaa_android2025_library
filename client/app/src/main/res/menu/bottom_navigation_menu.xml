@@ -3,19 +3,23 @@
     <item
         android:id="@+id/nav_search"
         android:icon="@drawable/ic_search"
+        android:background="@color/white"
         android:title="图书检索" />
 
     <item
         android:id="@+id/nav_seat"
         android:icon="@drawable/ic_seat"
+        android:background="@color/white"
         android:title="座位预约" />
 
     <item
         android:id="@+id/nav_stats"
         android:icon="@drawable/ic_stats"
+        android:background="@color/white"
         android:title="学习统计" />
     <item
         android:id="@+id/nav_ai"
         android:icon="@drawable/ic_ai"
+        android:background="@color/white"
         android:title="AI助手" />
 </menu>

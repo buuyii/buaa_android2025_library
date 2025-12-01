@@ -1,5 +1,0 @@
-<!-- res/drawable/background_with_inset.xml -->
-<inset xmlns:android="http://schemas.android.com/apk/res/android"
-    android:insetTop="90dp"
-    android:drawable="@drawable/xueyuanlu">
-</inset>

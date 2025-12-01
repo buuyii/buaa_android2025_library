@@ -26,9 +26,6 @@
             android:exported="false" />
         <activity
             android:name=".LoginStudent"
-            android:exported="false" />
-        <activity
-            android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Client">
             <intent-filter>

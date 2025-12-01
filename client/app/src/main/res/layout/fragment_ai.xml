@@ -6,6 +6,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="16dp"
+    android:background="@color/white"
     tools:context=".AiFragment">
 
     <ImageView
@@ -31,7 +32,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="你好，有什么可以帮助你的吗？"
-            android:textSize="16sp" />
+            android:textSize="18sp" />
     </ScrollView>
 
     <!-- 输入区域的水平线性布局 -->

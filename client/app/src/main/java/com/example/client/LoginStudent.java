@@ -21,6 +21,7 @@ public class LoginStudent extends AppCompatActivity {
     private TextInputEditText accountEditText, passwordEditText;
     private Button loginButton;
     private TextView gotoRegister;
+    private TextView gotoStaffLogin;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,6 +44,7 @@ public class LoginStudent extends AppCompatActivity {
         passwordEditText = findViewById(R.id.login_student_password);
         loginButton = findViewById(R.id.login_student_button);
         gotoRegister = findViewById(R.id.goto_register);
+        gotoStaffLogin = findViewById(R.id.goto_staff_login);
     }
 
     private void setListeners() {
@@ -57,6 +59,14 @@ public class LoginStudent extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(LoginStudent.this, RegisterStudent.class);
+                startActivity(intent);
+            }
+        });
+        
+        gotoStaffLogin.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(LoginStudent.this, LoginStaff.class);
                 startActivity(intent);
             }
         });

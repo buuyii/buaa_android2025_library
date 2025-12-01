@@ -65,7 +65,7 @@ public class RegisterStudent extends AppCompatActivity {
                         // 注册成功，切换回主线程来提示用户并跳转页面
                         runOnUiThread(() -> {
                             Toast.makeText(RegisterStudent.this, "注册成功", Toast.LENGTH_SHORT).show();
-                            Intent intent = new Intent(RegisterStudent.this, MainActivity.class);
+                            Intent intent = new Intent(RegisterStudent.this, LoginStudent.class);
                             // 清除之前的Activity栈，使用户不能通过返回键回到注册页
                             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                             startActivity(intent);

@@ -5,15 +5,16 @@ import android.os.Bundle;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import android.os.Looper;
 import android.os.Handler;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import com.alibaba.dashscope.exception.InputRequiredException;
@@ -23,6 +24,8 @@ import io.noties.markwon.Markwon;
 import io.noties.markwon.ext.strikethrough.StrikethroughPlugin;
 import io.noties.markwon.ext.tasklist.TaskListPlugin;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -31,8 +34,10 @@ import java.util.concurrent.Executors;
 public class AiFragment extends Fragment {
 
     private EditText promptEditText;
-    private Button sendButton;
-    private TextView chatResponseTextView;
+    private ImageButton sendButton;
+    private RecyclerView chatRecyclerView;
+    private ChatAdapter chatAdapter;
+    private List<ChatMessage> chatMessages;
     private final Qwen qwen = new Qwen();
 
     // 使用线程池来执行网络请求
@@ -54,6 +59,11 @@ public class AiFragment extends Fragment {
                 .usePlugin(StrikethroughPlugin.create()) // 启用删除线插件
                 .usePlugin(TaskListPlugin.create(requireContext())) // 启用任务列表插件
                 .build();
+        
+        // 初始化聊天消息列表
+        chatMessages = new ArrayList<>();
+        // 添加初始欢迎消息
+        chatMessages.add(new ChatMessage("你好，有什么可以帮助你的吗？", false));
     }
 
     @Override
@@ -70,80 +80,79 @@ public class AiFragment extends Fragment {
         // 初始化UI组件
         promptEditText = view.findViewById(R.id.promptEditText);
         sendButton = view.findViewById(R.id.sendButton);
-        chatResponseTextView = view.findViewById(R.id.chatResponseTextView);
+        chatRecyclerView = view.findViewById(R.id.chatRecyclerView);
 
-        markwon.setMarkdown(chatResponseTextView, "你好，有什么可以帮助你的吗？");
+        // 设置RecyclerView
+        chatAdapter = new ChatAdapter(chatMessages, markwon);
+        chatRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        chatRecyclerView.setAdapter(chatAdapter);
 
         // 设置发送按钮的点击事件
-        sendButton.setOnClickListener(v -> {
-            String userPrompt = promptEditText.getText().toString().trim();
-            if (userPrompt.isEmpty()) {
-                Toast.makeText(getContext(), "输入内容不能为空", Toast.LENGTH_SHORT).show();
-                return;
-            }
-
-            // 更新UI，显示用户输入
-            String currentChat = chatResponseTextView.getText().toString();
-            chatResponseTextView.setText(currentChat + "\n\n你: " + userPrompt);
-            promptEditText.setText(""); // 清空输入框
-
-            // 禁用按钮防止重复点击
-            sendButton.setEnabled(false);
-
-            // 在后台线程中执行网络请求
-            executor.execute(() -> {
-                String aiResponse = null;
-                try {
-                    aiResponse = qwen.callWithMessage(userPrompt).getOutput().getChoices().get(0).getMessage().getContent();
-                } catch (Exception e) {
-                    e.printStackTrace(); // 在Logcat中打印详细错误，方便调试
-
-                    // 将【错误】信息发送回主线程更新UI
-                    handler.post(() -> {
-                        String errorMessage;
-                        if (e instanceof NoApiKeyException) {
-                            errorMessage = "AI: 请求失败，请检查API-KEY是否已配置。";
-                        } else if (e instanceof InputRequiredException) {
-                            errorMessage = "AI: 请求失败，输入内容不能为空。";
-                        } else {
-                            errorMessage = "AI: 发生未知错误，请稍后再试。";
-                        }
-                        sendButton.setEnabled(true); // 出错后也要重新启用按钮
-                    });
-                }
-
-                // 在主线程中更新UI
-                String finalAiResponse = aiResponse;
-                handler.post(() -> {
-                    // 5. 使用Markwon来渲染AI的回复
-                    updateChat("AI: " + finalAiResponse, true);
-                    sendButton.setEnabled(true);
-                });
-            });
+        sendButton.setOnClickListener(v -> sendMessage());
+        
+        // 设置EditText的回车发送功能
+        promptEditText.setOnEditorActionListener((v, actionId, event) -> {
+            sendMessage();
+            return true;
         });
     }
 
-    private void updateChat(String message, boolean isMarkdown) {
-        // 获取当前TextView已有的内容 (Spanned)
-        CharSequence currentContent = chatResponseTextView.getText();
-
-        // 准备新的内容
-        CharSequence newMessage;
-        if (isMarkdown) {
-            // 如果是Markdown，使用Markwon来解析
-            newMessage = markwon.toMarkdown(message);
-        } else {
-            // 如果不是，就是普通文本
-            newMessage = message;
+    private void sendMessage() {
+        String userPrompt = promptEditText.getText().toString().trim();
+        if (userPrompt.isEmpty()) {
+            Toast.makeText(getContext(), "输入内容不能为空", Toast.LENGTH_SHORT).show();
+            return;
         }
 
-        // 检查是否是初始状态，如果是，直接替换
-        if (currentContent.toString().equals("你好，有什么可以帮助你的吗？") || currentContent.length() == 0) {
-            chatResponseTextView.setText(newMessage);
+        // 添加用户消息到列表
+        chatMessages.add(new ChatMessage(userPrompt, true));
+        chatAdapter.notifyItemInserted(chatMessages.size() - 1);
+        
+        // 清空输入框
+        promptEditText.setText("");
+        
+        // 滚动到底部
+        chatRecyclerView.scrollToPosition(chatMessages.size() - 1);
+        
+        // 禁用按钮防止重复点击
+        sendButton.setEnabled(false);
+
+        // 在后台线程中执行网络请求
+        executor.execute(() -> {
+            try {
+                String aiResponse = qwen.callWithMessage(userPrompt).getOutput().getChoices().get(0).getMessage().getContent();
+                // 在主线程中更新UI
+                handler.post(() -> handleAiResponse(aiResponse));
+            } catch (Exception e) {
+                e.printStackTrace(); // 在Logcat中打印详细错误，方便调试
+                // 将【错误】信息发送回主线程更新UI
+                handler.post(() -> handleError(e));
+            }
+        });
+    }
+
+    private void handleAiResponse(String aiResponse) {
+        // 添加AI回复到聊天列表
+        chatMessages.add(new ChatMessage(aiResponse, false));
+        chatAdapter.notifyItemInserted(chatMessages.size() - 1);
+        chatRecyclerView.scrollToPosition(chatMessages.size() - 1);
+        sendButton.setEnabled(true);
+    }
+
+    private void handleError(Exception e) {
+        String errorMessage;
+        if (e instanceof NoApiKeyException) {
+            errorMessage = "请求失败，请检查API-KEY是否已配置。";
+        } else if (e instanceof InputRequiredException) {
+            errorMessage = "请求失败，输入内容不能为空。";
         } else {
-            // 如果不是，追加新内容，并用换行符隔开
-            chatResponseTextView.append("\n\n");
-            chatResponseTextView.append(newMessage);
+            errorMessage = "发生未知错误，请稍后再试。";
         }
+        
+        // 添加错误消息到聊天列表
+        chatMessages.add(new ChatMessage(errorMessage, false));
+        chatAdapter.notifyItemInserted(chatMessages.size() - 1);
+        chatRecyclerView.scrollToPosition(chatMessages.size() - 1);
+        sendButton.setEnabled(true); // 出错后也要重新启用按钮
     }
 }

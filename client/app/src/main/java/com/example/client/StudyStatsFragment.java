@@ -212,15 +212,15 @@ public class StudyStatsFragment extends Fragment {
             
             // 准备图表数据
             List<StatisticsChartView.ChartData> weeklyChartData = new ArrayList<>();
-            String[] weekdays = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
+            String[] weekdays = {"MON", "TUE", "WED", "TUR", "FRI", "SAT", "SUN"};
             int[] colors = {
-                Color.parseColor("#2196F3"), // 普蓝色
-                Color.parseColor("#2196F3"), // 普蓝色
-                Color.parseColor("#2196F3"), // 普蓝色
-                Color.parseColor("#2196F3"), // 普蓝色
-                Color.parseColor("#2196F3"), // 普蓝色
-                Color.parseColor("#2196F3"), // 普蓝色
-                Color.parseColor("#2196F3")  // 普蓝色
+                Color.parseColor("#052C71"),
+                Color.parseColor("#052C71"),
+                Color.parseColor("#052C71"),
+                Color.parseColor("#052C71"),
+                Color.parseColor("#052C71"),
+                Color.parseColor("#052C71"),
+                Color.parseColor("#052C71")
             };
             
             for (int i = 0; i < 7; i++) {
@@ -239,8 +239,15 @@ public class StudyStatsFragment extends Fragment {
     private void updateUIData(double dailyTotalHours, Date earliestStart, Date latestEnd, 
                               double weeklyTotalHours, List<StatisticsChartView.ChartData> weeklyChartData) {
         handler.post(() -> {
+            // 计算小时和分钟
+            int dailyHours = (int) dailyTotalHours;
+            int dailyMinutes = (int) ((dailyTotalHours - dailyHours) * 60);
+            
+            int weeklyHours = (int) weeklyTotalHours;
+            int weeklyMinutes = (int) ((weeklyTotalHours - weeklyHours) * 60);
+            
             // 更新日报信息
-            dailyTotalTimeText.setText(String.format("今日总学习时长: %.1f 小时", dailyTotalHours));
+            dailyTotalTimeText.setText(String.format("今日总学习时长: %d小时%d分钟", dailyHours, dailyMinutes));
             
             if (earliestStart != null) {
                 dailyStartTimeText.setText(String.format("开始时间: %s", timeFormat.format(earliestStart)));
@@ -255,7 +262,7 @@ public class StudyStatsFragment extends Fragment {
             }
             
             // 更新周报信息
-            weeklyTotalTimeText.setText(String.format("本周总学习时长: %.1f 小时", weeklyTotalHours));
+            weeklyTotalTimeText.setText(String.format("本周总学习时长: %d小时%d分钟", weeklyHours, weeklyMinutes));
             
             // 设置图表数据（仅周报图表），固定使用柱状图
             weeklyChart.setChartData(weeklyChartData);

@@ -39,6 +39,8 @@
             android:layout_weight="1"
             android:layout_marginEnd="6dp"
             android:text="搜索记录"
+            android:backgroundTint="@color/blue_500"
+            android:textColor="@color/white"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
         <Button
@@ -49,6 +51,8 @@
             android:layout_marginStart="6dp"
             android:layout_marginEnd="6dp"
             android:text="收藏图书"
+            android:backgroundTint="@color/blue_500"
+            android:textColor="@color/white"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
         <Button
@@ -58,6 +62,8 @@
             android:layout_weight="1"
             android:layout_marginStart="6dp"
             android:text="图书分类"
+            android:backgroundTint="@color/blue_500"
+            android:textColor="@color/white"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
     </LinearLayout>

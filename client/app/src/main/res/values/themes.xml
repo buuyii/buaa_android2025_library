@@ -8,5 +8,17 @@
         <item name="colorSecondary">@color/blue_200</item>
         <item name="colorSecondaryVariant">@color/blue_200</item>
         <item name="colorOnSecondary">@color/black</item>
+        <!-- 自定义底部导航栏样式 -->
+        <item name="bottomNavigationStyle">@style/Widget.Custom.BottomNavigationView</item>
+    </style>
+
+    <!-- 自定义底部导航栏活动指示器样式 -->
+    <style name="Widget.Custom.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
+        <item name="itemActiveIndicatorStyle">@style/CustomActiveIndicator</item>
+    </style>
+
+    <!-- 活动指示器的具体样式 -->
+    <style name="CustomActiveIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/active_indicator</item>
     </style>
 </resources>

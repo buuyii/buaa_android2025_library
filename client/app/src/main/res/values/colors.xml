@@ -10,4 +10,6 @@
     <color name="seat_available">#4CAF50</color>
     <color name="seat_occupied">#F44336</color>
     <color name="seat_reserved">#FFEB3B</color>
+    // 添加活动指示器颜色
+    <color name="active_indicator">#5A75A3</color>
 </resources>

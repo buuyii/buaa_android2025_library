@@ -4,6 +4,7 @@ package com.example.client;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -44,6 +45,9 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder
         holder.authorText.setText("作者: " + book.getAuthor());
         holder.publisherText.setText("出版社: " + book.getPublisher());
         holder.yearText.setText("出版年份: " + book.getYear());
+        
+        // 设置默认封面图片
+        holder.coverImage.setImageResource(R.drawable.lib_logo);
 
         // 设置整个项目的点击监听器
         holder.itemView.setOnClickListener(v -> {
@@ -65,6 +69,7 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder
 
     static class BookViewHolder extends RecyclerView.ViewHolder {
         TextView titleText, authorText, publisherText, yearText;
+        ImageView coverImage;
 
         BookViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -72,6 +77,7 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder
             authorText = itemView.findViewById(R.id.book_author);
             publisherText = itemView.findViewById(R.id.book_publisher);
             yearText = itemView.findViewById(R.id.book_year);
+            coverImage = itemView.findViewById(R.id.book_cover);
         }
     }
 }

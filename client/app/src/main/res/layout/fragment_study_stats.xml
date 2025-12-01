@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
+    android:background="@drawable/transparent_study_stats"
     android:padding="16dp">
 
     <LinearLayout
@@ -11,97 +11,124 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Daily Report Section -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="今日学习统计"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="@color/black"
-            android:layout_marginBottom="12dp" />
 
+
+        <!-- Daily Report Section -->
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="20dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp">
+            app:cardCornerRadius="16dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="@color/white">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="今日学习统计"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/blue_500"
+                    android:layout_marginBottom="16dp" />
 
                 <TextView
                     android:id="@+id/daily_total_time"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="今日总学习时长: 0 小时"
-                    android:textSize="18sp"
+                    android:textSize="16sp"
                     android:textColor="@color/black"
                     android:textStyle="bold"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginBottom="16dp"
+                    android:drawableStart="@drawable/ic_clock"
+                    android:drawableTint="@color/blue_500"
+                    android:drawablePadding="12dp"
+                    android:gravity="center_vertical"/>
 
-                <TextView
-                    android:id="@+id/daily_start_time"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="开始时间: --:--"
-                    android:textSize="16sp"
-                    android:textColor="@color/black"
-                    android:layout_marginBottom="8dp" />
+                    android:orientation="horizontal"
+                    android:weightSum="2">
 
-                <TextView
-                    android:id="@+id/daily_end_time"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="结束时间: --:--"
-                    android:textSize="16sp"
-                    android:textColor="@color/black"
-                    android:layout_marginBottom="8dp" />
+                    <TextView
+                        android:id="@+id/daily_start_time"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="开始时间: --:--"
+                        android:textSize="16sp"
+                        android:textColor="@color/black"
+                        android:layout_marginBottom="8dp"
+                        android:gravity="center_vertical"/>
+
+                    <TextView
+                        android:id="@+id/daily_end_time"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="结束时间: --:--"
+                        android:textSize="16sp"
+                        android:textColor="@color/black"
+                        android:layout_marginBottom="8dp"
+
+                        android:gravity="center_vertical"/>
+                </LinearLayout>
 
             </LinearLayout>
 
         </androidx.cardview.widget.CardView>
 
         <!-- Weekly Report Section -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="本周学习统计"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="@color/black"
-            android:layout_marginBottom="12dp" />
-
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp">
+            app:cardCornerRadius="16dp"
+            app:cardElevation="6dp"
+            app:cardBackgroundColor="@color/white">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="本周学习统计"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/blue_500"
+                    android:layout_marginBottom="16dp" />
 
                 <TextView
                     android:id="@+id/weekly_total_time"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="本周总学习时长: 0 小时"
-                    android:textSize="18sp"
+                    android:textSize="16sp"
                     android:textColor="@color/black"
                     android:textStyle="bold"
-                    android:layout_marginBottom="16dp" />
+                    android:layout_marginBottom="20dp"
+                    android:drawableStart="@drawable/ic_clock"
+                    android:drawableTint="@color/blue_500"
+                    android:drawablePadding="12dp"
+                    android:gravity="center_vertical"/>
 
                 <com.example.client.StatisticsChartView
                     android:id="@+id/weekly_chart"
                     android:layout_width="match_parent"
-                    android:layout_height="250dp" />
+                    android:layout_height="250dp"
+                    android:background="@drawable/rounded_background"
+                    android:backgroundTint="#F5F5F5"
+                    android:padding="8dp"/>
 
             </LinearLayout>
 

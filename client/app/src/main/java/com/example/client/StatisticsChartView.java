@@ -87,7 +87,7 @@ public class StatisticsChartView extends View {
         int width = getWidth();
         int height = getHeight();
         int padding = 80;
-        int barWidth = (width - 2 * padding) / chartDataList.size() - 30;
+        int barWidth = Math.min(80, (width - 2 * padding) / chartDataList.size() - 50); // 减小柱子宽度，增加间距
         
         // Find max value for scaling
         float maxValue = 0;
@@ -123,9 +123,9 @@ public class StatisticsChartView extends View {
             // Draw bar
             paint.setColor(data.color);
             RectF rect = new RectF(
-                padding + i * (barWidth + 30) + 15,
+                padding + i * (barWidth + 50) + 25, // 增加柱子之间的间距
                 height - padding - barHeight,
-                padding + i * (barWidth + 30) + barWidth + 15,
+                padding + i * (barWidth + 50) + barWidth + 25,
                 height - padding
             );
             canvas.drawRect(rect, paint);
@@ -142,12 +142,11 @@ public class StatisticsChartView extends View {
             
             // Draw label
             canvas.save();
-            canvas.rotate(-45, rect.centerX(), height - padding + 30);
             paint.setColor(Color.BLACK);
             canvas.drawText(
                 data.label,
                 rect.centerX(),
-                height - padding + 30,
+                height - padding + 50, // 调整位置以适应水平文本
                 paint
             );
             canvas.restore();

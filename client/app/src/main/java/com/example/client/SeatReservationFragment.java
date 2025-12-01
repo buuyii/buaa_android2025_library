@@ -30,7 +30,7 @@ import java.util.concurrent.Executors;
 public class SeatReservationFragment extends Fragment {
 
     private static final long CHECK_INTERVAL_MS = 60 * 1000; // 1 minute
-    private static final long NO_SHOW_GRACE_PERIOD_MS = 1 * 60 * 1000; // 30 minutes
+    private static final long NO_SHOW_GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes
 
     private TextView seatStatusText;
     private Spinner floorSpinner, seatSpinner, timeslotSpinner;
@@ -406,7 +406,7 @@ public class SeatReservationFragment extends Fragment {
 
     private List<Integer> getSeats() {
         List<Integer> seats = new ArrayList<>();
-        for (int i = 1; i <= 100; i++) seats.add(i);
+        for (int i = 1; i <= 20; i++) seats.add(i);
         return seats;
     }
 

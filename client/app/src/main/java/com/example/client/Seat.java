@@ -16,6 +16,7 @@ public class Seat {
      */
     public String status;
 
+    // Constructor for Room
     public Seat(int floor, int seatNumber, String status) {
         this.floor = floor;
         this.seatNumber = seatNumber;

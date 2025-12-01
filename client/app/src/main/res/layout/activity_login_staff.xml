@@ -24,7 +24,6 @@
         android:layout_marginTop="60dp"
         android:layout_marginBottom="40dp"
         android:text="工作人员登录"
-        android:background="#FFEFD5"
         android:textSize="24sp"
         android:textStyle="bold" />
 

@@ -12,12 +12,12 @@
 
     <ImageView
         android:id="@+id/logo"
-        android:layout_width="79dp"
-        android:layout_height="80dp"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
         android:layout_gravity="center"
         android:layout_marginTop="40dp"
         android:layout_marginBottom="20dp"
-        android:src="@drawable/buaa_logo_basic" />
+        android:src="@drawable/buaa_logo" />
 
     <TextView
         android:layout_width="wrap_content"

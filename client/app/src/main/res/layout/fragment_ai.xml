@@ -13,7 +13,7 @@
         android:id="@+id/myImageView"
         android:layout_width="match_parent"
         android:layout_height="90dp"
-        android:src="@drawable/mini_logo"
+        android:src="@drawable/buaa_logo"
         android:layout_centerInParent="true"
         />
     <!-- 用于显示对话内容的滚动视图 -->

@@ -24,12 +24,14 @@ public class ReservationRecord {
     public int studentId;
     public int seatId;
     public int timeSlotId;
-    public Date reservationDate; // Changed from reservationTime
+    public Date reservationDate;
+    public long reservationTimestamp; // To store the exact moment of reservation
 
-    public ReservationRecord(int studentId, int seatId, int timeSlotId, Date reservationDate) {
+    public ReservationRecord(int studentId, int seatId, int timeSlotId, Date reservationDate, long reservationTimestamp) {
         this.studentId = studentId;
         this.seatId = seatId;
         this.timeSlotId = timeSlotId;
         this.reservationDate = reservationDate;
+        this.reservationTimestamp = reservationTimestamp;
     }
 }

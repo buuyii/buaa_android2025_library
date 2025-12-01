@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-@Database(entities = {Student.class, Seat.class, TimeSlot.class, ReservationRecord.class, StudyRecord.class}, version = 2, exportSchema = false)
+@Database(entities = {Student.class, Seat.class, TimeSlot.class, ReservationRecord.class, StudyRecord.class}, version = 3, exportSchema = false)
 @TypeConverters({Converters.class})
 public abstract class AppDataBase extends RoomDatabase {
     private static final int NUMBER_OF_THREADS = 4;

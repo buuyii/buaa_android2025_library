@@ -17,21 +17,20 @@ import android.widget.Toast;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 public class SeatReservationFragment extends Fragment {
 
     private static final long CHECK_INTERVAL_MS = 60 * 1000; // 1 minute
-    private static final long NO_SHOW_GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes
+    private static final long NO_SHOW_GRACE_PERIOD_MS = 1 * 60 * 1000; // 30 minutes
 
     private TextView seatStatusText;
     private Spinner floorSpinner, seatSpinner, timeslotSpinner;
@@ -63,24 +62,23 @@ public class SeatReservationFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 2. 注册一个回调来处理Activity返回的结果
         graphicalSeatLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
-                    // 当GraphicalSeatSelectionActivity关闭后，这里会被调用
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Intent data = result.getData();
                         int seatNumber = data.getIntExtra("SELECTED_SEAT_NUMBER", -1);
                         if (seatNumber != -1) {
-                            // 更新UI
                             updateSpinnerSelection(seatSpinner, seatNumber);
                         }
                     }
                 });
     }
+
     @Override
     public void onResume() {
         super.onResume();
+        populateSpinners();
         updateUIState();
         startPeriodicChecks();
     }
@@ -102,8 +100,6 @@ public class SeatReservationFragment extends Fragment {
         checkoutButton = view.findViewById(R.id.checkout_button);
         selectionLayout = view.findViewById(R.id.selection_layout);
         graphicalSelectButton = view.findViewById(R.id.graphical_select_button);
-
-        populateSpinners();
     }
 
     private void setupListeners() {
@@ -113,8 +109,93 @@ public class SeatReservationFragment extends Fragment {
         checkoutButton.setOnClickListener(v -> handleCheckOut());
         graphicalSelectButton.setOnClickListener(v -> navigateToGraphicalActivity());
     }
-    
-    // ... (populateSpinners, handleReservation, etc. remain the same) ...
+
+    private void populateSpinners() {
+        if (getContext() == null) return;
+
+        ArrayAdapter<String> floorAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, getFloors());
+        floorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        floorSpinner.setAdapter(floorAdapter);
+
+        ArrayAdapter<Integer> seatAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, getSeats());
+        seatAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        seatSpinner.setAdapter(seatAdapter);
+
+        executor.execute(() -> {
+            List<TimeSlot> allTimeSlots = db.timeSlotDao().getAllTimeSlots();
+            List<TimeSlot> availableTimeSlots = new ArrayList<>();
+            Date now = new Date();
+            Date today = getStartOfDay(now);
+
+            for (TimeSlot ts : allTimeSlots) {
+                Date endTime = getDateForTimeString(ts.endTime, today);
+                if (endTime != null && now.before(endTime)) {
+                    availableTimeSlots.add(ts);
+                }
+            }
+
+            handler.post(() -> {
+                if (getContext() != null) {
+                    if (availableTimeSlots.isEmpty()) {
+                        List<String> noSlotsMessage = new ArrayList<>();
+                        noSlotsMessage.add("今日暂无可约时段");
+                        ArrayAdapter<String> adapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, noSlotsMessage);
+                        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                        timeslotSpinner.setAdapter(adapter);
+                        timeslotSpinner.setEnabled(false);
+                        reserveButton.setEnabled(false);
+                    } else {
+                        ArrayAdapter<TimeSlot> timeSlotAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, availableTimeSlots);
+                        timeSlotAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                        timeslotSpinner.setAdapter(timeSlotAdapter);
+                        timeslotSpinner.setEnabled(true);
+                        reserveButton.setEnabled(true);
+                    }
+                }
+            });
+        });
+    }
+
+    private void handleReservation() {
+        if (floorSpinner.getSelectedItem() == null || seatSpinner.getSelectedItem() == null || !(timeslotSpinner.getSelectedItem() instanceof TimeSlot)) {
+            Toast.makeText(getContext(), "请完成所有选择", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        TimeSlot selectedTimeSlot = (TimeSlot) timeslotSpinner.getSelectedItem();
+        int selectedSeatNum = (int) seatSpinner.getSelectedItem();
+        int selectedFloor = floorSpinner.getSelectedItemPosition() + 1;
+
+        executor.execute(() -> {
+            Seat seat = db.seatDao().findSeatByFloorAndNumber(selectedFloor, selectedSeatNum);
+            if (seat == null) {
+                handler.post(() -> Toast.makeText(getContext(), "选择的座位无效", Toast.LENGTH_SHORT).show());
+                return;
+            }
+
+            Date today = getStartOfDay(new Date());
+
+            List<ReservationRecord> existingReservations = db.reservationRecordDao().findReservationsForSeat(seat.id, selectedTimeSlot.id, today);
+            if (!existingReservations.isEmpty()) {
+                handler.post(() -> Toast.makeText(getContext(), "此座位在该时段已被预订。", Toast.LENGTH_LONG).show());
+                return;
+            }
+
+            ReservationRecord userExistingReservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
+            if (userExistingReservation != null) {
+                handler.post(() -> Toast.makeText(getContext(), "您今天已经有预约了。", Toast.LENGTH_LONG).show());
+                return;
+            }
+
+            long timestamp = System.currentTimeMillis();
+            ReservationRecord newRecord = new ReservationRecord(studentId, seat.id, selectedTimeSlot.id, today, timestamp);
+            db.reservationRecordDao().insert(newRecord);
+            handler.post(() -> {
+                Toast.makeText(getContext(), "预约成功!", Toast.LENGTH_SHORT).show();
+                updateUIState();
+            });
+        });
+    }
 
     private void startPeriodicChecks() {
         seatCheckRunnable = () -> {
@@ -131,172 +212,82 @@ public class SeatReservationFragment extends Fragment {
     private void runSeatReleaseChecks() {
         Date now = new Date();
         Date today = getStartOfDay(now);
-        
+        boolean shouldUpdateUi = false;
+
         // 1. Check for no-shows
         List<ReservationRecord> reservations = db.reservationRecordDao().getReservationsByDate(today);
         for (ReservationRecord r : reservations) {
             StudyRecord sr = db.studyRecordDao().findActiveStudyRecordByStudentAndSeat(r.studentId, r.seatId);
             if (sr == null) { // Not checked in
                 TimeSlot ts = db.timeSlotDao().getTimeSlotById(r.timeSlotId);
-                Date deadline = getDateForTimeString(ts.startTime, today);
-                if (deadline != null && now.getTime() > deadline.getTime() + NO_SHOW_GRACE_PERIOD_MS) {
-                    db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
-                    // Seat was never 'occupied', so no status change needed
+                if (ts == null) continue;
+
+                Date slotStartTime = getDateForTimeString(ts.startTime, today);
+                long reservationTime = r.reservationTimestamp;
+
+                if (slotStartTime != null) {
+                    long checkInDeadline;
+                    if (reservationTime < slotStartTime.getTime()) {
+                        checkInDeadline = slotStartTime.getTime() + NO_SHOW_GRACE_PERIOD_MS;
+                    } else {
+                        checkInDeadline = reservationTime + NO_SHOW_GRACE_PERIOD_MS;
+                    }
+
+                    if (now.getTime() > checkInDeadline) {
+                        db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
+                        if (r.studentId == studentId) {
+                            shouldUpdateUi = true;
+                            handler.post(() -> {
+                                if (isResumed() && getContext() != null) {
+                                    new AlertDialog.Builder(getContext())
+                                            .setTitle("预约已过期")
+                                            .setMessage("因未及时签到，您的预约已过期")
+                                            .setCancelable(false)
+                                            .setPositiveButton("确定", (dialog, which) -> updateUIState())
+                                            .show();
+                                }
+                            });
+                        }
+                    }
                 }
             }
         }
 
-        // 2. Check for overdue checkouts for reservations
+        // 2. Check for overdue checkouts
         List<StudyRecord> activeStudies = db.studyRecordDao().getAllActiveStudyRecords();
         for (StudyRecord sr : activeStudies) {
             ReservationRecord r = db.reservationRecordDao().findReservationByUserAndDate(sr.studentId, today);
             if (r != null) {
                 TimeSlot ts = db.timeSlotDao().getTimeSlotById(r.timeSlotId);
+                if (ts == null) continue;
+
                 Date endTime = getDateForTimeString(ts.endTime, today);
                 if (endTime != null && now.after(endTime)) {
-                    sr.endTime = endTime; // Set end time to the slot's end
+                    sr.endTime = endTime;
                     db.studyRecordDao().update(sr);
                     db.seatDao().updateSeatStatus(sr.seatId, "available");
                     db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
+
+                    if (sr.studentId == studentId) {
+                        shouldUpdateUi = true;
+                        handler.post(() -> {
+                            if (isResumed() && getContext() != null) {
+                                new AlertDialog.Builder(getContext())
+                                        .setTitle("预约已结束")
+                                        .setMessage("您的预约已结束")
+                                        .setCancelable(false)
+                                        .setPositiveButton("确定", (dialog, which) -> updateUIState())
+                                        .show();
+                            }
+                        });
+                    }
                 }
-            } else {
-                // Handle walk-in users who have no reservation
-                // Auto-checkout at midnight
-                Calendar cal = Calendar.getInstance();
-                cal.setTime(now);
-                if (cal.get(Calendar.HOUR_OF_DAY) == 23 && cal.get(Calendar.MINUTE) >= 59) {
-                    sr.endTime = now;
-                    db.studyRecordDao().update(sr);
-                    db.seatDao().updateSeatStatus(sr.seatId, "available");
-                }
             }
         }
-        
-        // Refresh UI if the current user might be affected
-        handler.post(this::updateUIState);
-    }
 
-    // Helper to parse time string like "17:00" into a Date object for a specific day
-    private Date getDateForTimeString(String time, Date day) {
-        try {
-            String[] parts = time.split(":");
-            Calendar cal = Calendar.getInstance();
-            cal.setTime(day);
-            cal.set(Calendar.HOUR_OF_DAY, Integer.parseInt(parts[0]));
-            cal.set(Calendar.MINUTE, Integer.parseInt(parts[1]));
-            cal.set(Calendar.SECOND, 0);
-            cal.set(Calendar.MILLISECOND, 0);
-            return cal.getTime();
-        } catch (Exception e) {
-            return null;
+        if (!shouldUpdateUi) {
+           // handler.post(this::updateUIState); // No longer needed as dialogs handle their own updates
         }
-    }
-
-    // ... (rest of the methods like updateUIState, handleReservation, handleCheckIn, etc.)
-    private void populateSpinners() {
-        // Floors
-        ArrayAdapter<Integer> floorAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, getFloors());
-        floorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        floorSpinner.setAdapter(floorAdapter);
-
-        // Seats
-        ArrayAdapter<Integer> seatAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, getSeats());
-        seatAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        seatSpinner.setAdapter(seatAdapter);
-
-        // TimeSlots
-        executor.execute(() -> {
-            List<TimeSlot> timeSlots = db.timeSlotDao().getAllTimeSlots();
-            handler.post(() -> {
-                ArrayAdapter<TimeSlot> timeSlotAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, timeSlots);
-                timeSlotAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                timeslotSpinner.setAdapter(timeSlotAdapter);
-            });
-        });
-    }
-
-    private void updateUIState() {
-        executor.execute(() -> {
-            Date today = getStartOfDay(new Date());
-            ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
-            StudyRecord studyRecord = db.studyRecordDao().getCurrentStudyRecordForStudent(studentId);
-
-            handler.post(() -> {
-                if (studyRecord != null) {
-                    // State: Checked-in
-                    selectionLayout.setVisibility(View.GONE);
-                    reserveButton.setVisibility(View.GONE);
-                    cancelButton.setVisibility(View.GONE);
-                    checkinButton.setVisibility(View.GONE);
-                    checkoutButton.setVisibility(View.VISIBLE);
-                    seatStatusText.setText("状态: 已签到，正在学习");
-                } else if (reservation != null) {
-                    // State: Reserved
-                    selectionLayout.setVisibility(View.GONE);
-                    reserveButton.setVisibility(View.GONE);
-                    cancelButton.setVisibility(View.VISIBLE);
-                    checkinButton.setVisibility(View.VISIBLE);
-                    checkoutButton.setVisibility(View.GONE);
-                    seatStatusText.setText("状态: 已预约，等待签到");
-
-                    checkinButton.setEnabled(true);
-                } else {
-                    // State: No reservation
-                    selectionLayout.setVisibility(View.VISIBLE);
-                    reserveButton.setVisibility(View.VISIBLE);
-                    cancelButton.setVisibility(View.GONE);
-                    checkinButton.setVisibility(View.GONE);
-                    checkoutButton.setVisibility(View.GONE);
-                    seatStatusText.setText("状态: 未预约");
-                }
-            });
-        });
-    }
-
-    private void handleReservation() {
-
-        if (floorSpinner.getSelectedItem() == null || seatSpinner.getSelectedItem() == null || timeslotSpinner.getSelectedItem() == null) {
-            Toast.makeText(getContext(), "请完成所有选择", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        TimeSlot selectedTimeSlot = (TimeSlot) timeslotSpinner.getSelectedItem();
-        int selectedSeatNum = (int) seatSpinner.getSelectedItem();
-        int selectedFloor = (int) floorSpinner.getSelectedItem();
-
-        if (selectedTimeSlot == null) {
-            Toast.makeText(getContext(), "Please select a time slot", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        
-        executor.execute(() -> {
-            Seat seat = db.seatDao().findSeatByFloorAndNumber(selectedFloor, selectedSeatNum);
-            if (seat == null) {
-                handler.post(() -> Toast.makeText(getContext(), "Selected seat is invalid", Toast.LENGTH_SHORT).show());
-                return;
-            }
-
-            Date today = getStartOfDay(new Date());
-
-            List<ReservationRecord> existingReservations = db.reservationRecordDao().findReservationsForSeat(seat.id, selectedTimeSlot.id, today);
-            if (!existingReservations.isEmpty()) {
-                handler.post(() -> Toast.makeText(getContext(), "This seat is already reserved for the selected time slot.", Toast.LENGTH_LONG).show());
-                return;
-            }
-            
-            ReservationRecord userExistingReservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
-            if (userExistingReservation != null) {
-                 handler.post(() -> Toast.makeText(getContext(), "You already have a reservation for today.", Toast.LENGTH_LONG).show());
-                return;
-            }
-
-            ReservationRecord newRecord = new ReservationRecord(studentId, seat.id, selectedTimeSlot.id, today);
-            db.reservationRecordDao().insert(newRecord);
-            handler.post(() -> {
-                Toast.makeText(getContext(), "Reservation successful!", Toast.LENGTH_SHORT).show();
-                updateUIState();
-            });
-        });
     }
 
     private void handleCancellation() {
@@ -339,7 +330,7 @@ public class SeatReservationFragment extends Fragment {
 
                 Date today = getStartOfDay(new Date());
                 ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
-                if(reservation != null) {
+                if (reservation != null) {
                     db.reservationRecordDao().deleteReservation(reservation.studentId, reservation.seatId, reservation.timeSlotId, reservation.reservationDate);
                 }
 
@@ -351,9 +342,65 @@ public class SeatReservationFragment extends Fragment {
         });
     }
 
-    private List<Integer> getFloors() {
-        List<Integer> floors = new ArrayList<>();
-        for (int i = 1; i <= 6; i++) floors.add(i);
+    private Date getDateForTimeString(String time, Date day) {
+        try {
+            String[] parts = time.split(":");
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(day);
+            cal.set(Calendar.HOUR_OF_DAY, Integer.parseInt(parts[0]));
+            cal.set(Calendar.MINUTE, Integer.parseInt(parts[1]));
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            return cal.getTime();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void updateUIState() {
+        executor.execute(() -> {
+            Date today = getStartOfDay(new Date());
+            ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
+            StudyRecord studyRecord = db.studyRecordDao().getCurrentStudyRecordForStudent(studentId);
+
+            handler.post(() -> {
+                if (getContext() == null) return;
+                
+                if (studyRecord != null) {
+                    selectionLayout.setVisibility(View.GONE);
+                    reserveButton.setVisibility(View.GONE);
+                    cancelButton.setVisibility(View.GONE);
+                    checkinButton.setVisibility(View.GONE);
+                    checkoutButton.setVisibility(View.VISIBLE);
+                    seatStatusText.setText("状态: 已签到，正在学习");
+                } else if (reservation != null) {
+                    selectionLayout.setVisibility(View.GONE);
+                    reserveButton.setVisibility(View.GONE);
+                    cancelButton.setVisibility(View.VISIBLE);
+                    checkinButton.setVisibility(View.VISIBLE);
+                    checkoutButton.setVisibility(View.GONE);
+                    seatStatusText.setText("状态: 已预约，等待签到");
+                    checkinButton.setEnabled(true);
+                } else {
+                    selectionLayout.setVisibility(View.VISIBLE);
+                    reserveButton.setVisibility(View.VISIBLE);
+                    cancelButton.setVisibility(View.GONE);
+                    checkinButton.setVisibility(View.GONE);
+                    checkoutButton.setVisibility(View.GONE);
+                    seatStatusText.setText("状态: 未预约");
+                }
+            });
+        });
+    }
+
+    private List<String> getFloors() {
+        List<String> floors = new ArrayList<>();
+        floors.add("一楼（开放至23:00）");
+        floors.add("二楼（开放至22:00）");
+        floors.add("三楼（开放至23:00）");
+        floors.add("四楼（开放至23:00）");
+        floors.add("五楼（开放至22:00）");
+        floors.add("六楼（开放至22:00）");
         return floors;
     }
 
@@ -378,24 +425,22 @@ public class SeatReservationFragment extends Fragment {
             Toast.makeText(getContext(), "请先选择楼层", Toast.LENGTH_SHORT).show();
             return;
         }
-        int floor = (int) floorSpinner.getSelectedItem();
+        int floor = floorSpinner.getSelectedItemPosition() + 1;
 
-        // 3. 创建Intent并启动Activity
         Intent intent = new Intent(getActivity(), GraphicalSeatSelectionActivity.class);
-        intent.putExtra("FLOOR_NUMBER", floor); // 传递楼层号
-
-        graphicalSeatLauncher.launch(intent); // 使用launcher启动
+        intent.putExtra("FLOOR_NUMBER", floor);
+        graphicalSeatLauncher.launch(intent);
     }
+
     private void updateSpinnerSelection(Spinner spinner, int value) {
         ArrayAdapter<Integer> adapter = (ArrayAdapter<Integer>) spinner.getAdapter();
         if (adapter != null) {
             for (int i = 0; i < adapter.getCount(); i++) {
-                if (adapter.getItem(i) == value) {
+                if (adapter.getItem(i).equals(value)) {
                     spinner.setSelection(i);
                     break;
                 }
             }
         }
     }
-
 }

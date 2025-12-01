@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.fragment.app.Fragment;
 
@@ -14,6 +15,7 @@ public class BookDetailFragment extends Fragment {
 
     private static final String ARG_BOOK = "book";
     private Book book;
+    private Button favoriteButton;
 
     public BookDetailFragment() {
         // Required empty public constructor
@@ -45,6 +47,7 @@ public class BookDetailFragment extends Fragment {
         TextView publisherText = view.findViewById(R.id.detail_publisher);
         TextView yearText = view.findViewById(R.id.detail_year);
         TextView descriptionText = view.findViewById(R.id.detail_description); // 新增
+        favoriteButton = view.findViewById(R.id.favorite_button);
         Button backButton = view.findViewById(R.id.back_button);
 
         if (book != null) {
@@ -53,6 +56,17 @@ public class BookDetailFragment extends Fragment {
             publisherText.setText("出版社: " + book.getPublisher());
             yearText.setText("出版年份: " + book.getYear());
             descriptionText.setText(book.getDescription()); // 设置简介内容
+            
+            // 检查图书是否已被收藏，设置按钮初始状态
+            updateFavoriteButtonState();
+            
+            // 设置收藏按钮的点击事件
+            favoriteButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    toggleFavorite();
+                }
+            });
         }
 
         backButton.setOnClickListener(v -> {
@@ -62,5 +76,27 @@ public class BookDetailFragment extends Fragment {
         });
 
         return view;
+    }
+    
+    private void updateFavoriteButtonState() {
+        if (FavoritesManager.getInstance().isFavorite(book)) {
+            favoriteButton.setText("取消收藏");
+        } else {
+            favoriteButton.setText("收藏图书");
+        }
+    }
+    
+    private void toggleFavorite() {
+        if (FavoritesManager.getInstance().isFavorite(book)) {
+            // 当前已收藏，执行取消收藏操作
+            FavoritesManager.getInstance().removeFavorite(book);
+            favoriteButton.setText("收藏图书");
+            Toast.makeText(getContext(), "已取消收藏: " + book.getTitle(), Toast.LENGTH_SHORT).show();
+        } else {
+            // 当前未收藏，执行收藏操作
+            FavoritesManager.getInstance().addFavorite(book);
+            favoriteButton.setText("取消收藏");
+            Toast.makeText(getContext(), "已收藏: " + book.getTitle(), Toast.LENGTH_SHORT).show();
+        }
     }
 }

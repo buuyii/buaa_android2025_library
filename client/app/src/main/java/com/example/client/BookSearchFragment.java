@@ -1,6 +1,7 @@
 package com.example.client;
 
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,10 +19,12 @@ import java.util.List;
 public class BookSearchFragment extends Fragment {
 
     private EditText searchInput;
-    private Button searchButton;
     private RecyclerView booksRecyclerView;
     private BookAdapter bookAdapter;
     private List<Book> bookList;
+    private Button searchHistoryButton;
+    private Button favoriteBooksButton;
+    private Button bookCategoriesButton;
 
     public BookSearchFragment() {
         // Required empty public constructor
@@ -33,8 +36,10 @@ public class BookSearchFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_book_search, container, false);
 
         searchInput = view.findViewById(R.id.search_input);
-        searchButton = view.findViewById(R.id.search_button);
         booksRecyclerView = view.findViewById(R.id.books_recycler_view);
+        searchHistoryButton = view.findViewById(R.id.search_history_button);
+        favoriteBooksButton = view.findViewById(R.id.favorite_books_button);
+        bookCategoriesButton = view.findViewById(R.id.book_categories_button);
 
         bookList = new ArrayList<>();
         bookAdapter = new BookAdapter(bookList);
@@ -53,13 +58,94 @@ public class BookSearchFragment extends Fragment {
             }
         });
 
-        searchButton.setOnClickListener(v -> performSearch());
+        // 设置输入框的回车键监听器
+        searchInput.setOnEditorActionListener(new TextView.OnEditorActionListener() {
+            @Override
+            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
+                performSearch();
+                return true;
+            }
+        });
+
+        // 设置模块按钮的点击监听器
+        searchHistoryButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 显示搜索记录
+                showSearchHistory();
+            }
+        });
+
+        favoriteBooksButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 显示收藏图书
+                showFavoriteBooks();
+            }
+        });
+
+        bookCategoriesButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // 按分类浏览图书
+                showCategoryBrowse();
+            }
+        });
 
         // 初始化示例数据
         initializeSampleData();
 
         return view;
     }
+    
+    private void showSearchHistory() {
+        // 创建一个临时的搜索历史列表（在实际应用中，这些数据应该从数据库或SharedPreferences中获取）
+        List<Book> searchHistory = new ArrayList<>();
+        if (bookList.size() > 0) {
+            searchHistory.add(bookList.get(0));
+        }
+        if (bookList.size() > 5) {
+            searchHistory.add(bookList.get(5));
+        }
+        if (bookList.size() > 10) {
+            searchHistory.add(bookList.get(10));
+        }
+        
+        BookListFragment searchHistoryFragment = BookListFragment.newInstance("搜索历史", searchHistory);
+        if (getActivity() != null) {
+            getActivity().getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.fragment_container, searchHistoryFragment)
+                    .addToBackStack(null)
+                    .commit();
+        }
+    }
+    
+    private void showFavoriteBooks() {
+        // 获取最新的收藏图书列表
+        List<Book> favoriteBooks = FavoritesManager.getInstance().getFavoriteBooks();
+        
+        BookListFragment favoriteBooksFragment = BookListFragment.newInstance("收藏图书", favoriteBooks);
+        if (getActivity() != null) {
+            getActivity().getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.fragment_container, favoriteBooksFragment)
+                    .addToBackStack(null)
+                    .commit();
+        }
+    }
+    
+    private void showCategoryBrowse() {
+        CategoryBrowseFragment categoryBrowseFragment = new CategoryBrowseFragment();
+        if (getActivity() != null) {
+            getActivity().getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.fragment_container, categoryBrowseFragment)
+                    .addToBackStack(null)
+                    .commit();
+        }
+    }
+    
     private void performSearch() {
         String query = searchInput.getText().toString().trim();
         if (!query.isEmpty()) {

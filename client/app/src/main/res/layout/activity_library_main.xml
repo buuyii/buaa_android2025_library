@@ -12,10 +12,9 @@
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            android:background="?attr/colorPrimary"
-            app:title="图书馆系统"
-            app:titleTextColor="@android:color/white" />
+            android:layout_height="75dp"
+            android:minHeight="?attr/actionBarSize"
+            android:background="@drawable/head"/>
 
     </com.google.android.material.appbar.AppBarLayout>
 

@@ -1,6 +1,7 @@
 package com.example.client;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -93,6 +94,12 @@ public class LoginStudent extends AppCompatActivity {
                     Student student = students.get(0);
                     if (student.password.equals(password)) {
                         Toast.makeText(LoginStudent.this, "登录成功", Toast.LENGTH_SHORT).show();
+                        // 保存当前用户ID到SharedPreferences
+                        SharedPreferences sharedPreferences = getSharedPreferences("library_app", MODE_PRIVATE);
+                        SharedPreferences.Editor editor = sharedPreferences.edit();
+                        editor.putInt("student_id", student.id);
+                        editor.apply();
+                        
                         // 跳转到图书馆管理系统主界面
                         Intent intent = new Intent(LoginStudent.this, LibraryMainActivity.class);
                         startActivity(intent);

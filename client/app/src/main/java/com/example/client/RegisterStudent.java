@@ -16,7 +16,7 @@ import androidx.core.view.WindowInsetsCompat;
 import java.util.List;
 
 public class RegisterStudent extends AppCompatActivity {
-    private EditText editAccount, editPassword1, editPassword2, editName;
+    private EditText editAccount, editPassword1, editPassword2, editName, editStudentId;
     private Button buttonCommit;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,8 +33,9 @@ public class RegisterStudent extends AppCompatActivity {
                 final String password = editPassword1.getText().toString();
                 final String passwordConfirm = editPassword2.getText().toString();
                 final String name = editName.getText().toString().trim();
+                final String studentId = editStudentId.getText().toString().trim();
                 // 校验
-                if (account.isEmpty() || password.isEmpty() || name.isEmpty()) {
+                if (account.isEmpty() || password.isEmpty() || name.isEmpty() || studentId.isEmpty()) {
                     Toast.makeText(RegisterStudent.this, "注册信息不能为空", Toast.LENGTH_SHORT).show();
                     return; // 结束执行
                 }
@@ -59,7 +60,7 @@ public class RegisterStudent extends AppCompatActivity {
                         });
                     } else {
                         // 账号不存在，可以进行注册
-                        Student newStudent = new Student(account, password, name, "");
+                        Student newStudent = new Student(account, password, name, studentId);
                         AppDataBase.getInstance(getApplicationContext()).studentDao().insertAll(newStudent);
 
                         // 注册成功，切换回主线程来提示用户并跳转页面
@@ -86,6 +87,7 @@ public class RegisterStudent extends AppCompatActivity {
         editPassword1 = findViewById(R.id.reg_st_pass1_id);
         editPassword2 = findViewById(R.id.reg_st_pass2_id);
         editName = findViewById(R.id.reg_st_name_id);
+        editStudentId = findViewById(R.id.reg_st_ID_id);
     }
 
 }

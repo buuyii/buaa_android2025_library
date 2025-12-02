@@ -16,6 +16,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Client">
         <activity
+            android:name=".StudentProfileActivity"
+            android:exported="false" />
+        <activity
             android:name=".GraphicalSeatSelectionActivity"
             android:exported="false" />
         <activity

@@ -53,7 +53,8 @@ public class SeatReservationFragment extends Fragment {
     private ActivityResultLauncher<Intent> graphicalSeatLauncher;
     private Button graphicalSelectButton;
     private Runnable seatCheckRunnable;
-    private TextView seatAvailabilityText;
+    private TextView seatAvailabilityInline; // 新增内联余量显示控件
+    private TextView seatAvailabilityBelow;  // 新增下方余量显示控件
 
     public SeatReservationFragment() {}
 
@@ -113,7 +114,8 @@ public class SeatReservationFragment extends Fragment {
         selectionLayout = view.findViewById(R.id.selection_layout);
         graphicalSelectButton = view.findViewById(R.id.graphical_select_button);
         announcementBanner = view.findViewById(R.id.announcement_banner);
-        seatAvailabilityText = view.findViewById(R.id.seat_availability_text);
+        seatAvailabilityInline = view.findViewById(R.id.seat_availability_inline); // 初始化内联余量显示控件
+        seatAvailabilityBelow = view.findViewById(R.id.seat_availability_below);   // 初始化下方余量显示控件
     }
 
     private void setupBanner() {
@@ -433,6 +435,9 @@ public class SeatReservationFragment extends Fragment {
                     checkinButton.setVisibility(View.GONE);
                     checkoutButton.setVisibility(View.VISIBLE);
                     seatStatusText.setText("状态: 已签到，正在学习");
+                    // 预约成功后隐藏内联余量，显示下方余量
+                    seatAvailabilityInline.setVisibility(View.GONE);
+                    seatAvailabilityBelow.setVisibility(View.VISIBLE);
                 } else if (reservation != null) {
                     selectionLayout.setVisibility(View.GONE);
                     reserveButton.setVisibility(View.GONE);
@@ -441,6 +446,9 @@ public class SeatReservationFragment extends Fragment {
                     checkoutButton.setVisibility(View.GONE);
                     seatStatusText.setText("状态: 已预约，等待签到");
                     checkinButton.setEnabled(true);
+                    // 预约成功后隐藏内联余量，显示下方余量
+                    seatAvailabilityInline.setVisibility(View.GONE);
+                    seatAvailabilityBelow.setVisibility(View.VISIBLE);
                 } else {
                     selectionLayout.setVisibility(View.VISIBLE);
                     reserveButton.setVisibility(View.VISIBLE);
@@ -448,6 +456,9 @@ public class SeatReservationFragment extends Fragment {
                     checkinButton.setVisibility(View.GONE);
                     checkoutButton.setVisibility(View.GONE);
                     seatStatusText.setText("状态: 未预约");
+                    // 未预约时显示内联余量，隐藏下方余量
+                    seatAvailabilityInline.setVisibility(View.VISIBLE);
+                    seatAvailabilityBelow.setVisibility(View.GONE);
                 }
             });
         });
@@ -509,7 +520,10 @@ public class SeatReservationFragment extends Fragment {
             // 在后台线程计算余量
             List<Seat> allSeats = db.seatDao().getAllSeats(); // 假设您有 getAllSeats() 方法
             if (allSeats == null || allSeats.isEmpty()) {
-                handler.post(() -> seatAvailabilityText.setText("座位信息加载失败"));
+                handler.post(() -> {
+                    seatAvailabilityInline.setText("余量: 加载失败");
+                    seatAvailabilityBelow.setText("座位信息加载失败");
+                });
                 return;
             }
 
@@ -522,11 +536,13 @@ public class SeatReservationFragment extends Fragment {
                     availableCount++;
                 }
             }
-            final String availabilityInfo = "当前总余量: " + availableCount + " / " + allSeats.size();
+            final String availabilityInfoInline = "座位余量: " + availableCount + "/" + allSeats.size();
+            final String availabilityInfoBelow = "座位余量：" + availableCount + " / " + allSeats.size();
 
             // 切换到主线程更新UI
             handler.post(() -> {
-                seatAvailabilityText.setText(availabilityInfo);
+                seatAvailabilityInline.setText(availabilityInfoInline);
+                seatAvailabilityBelow.setText(availabilityInfoBelow);
             });
         });
     }

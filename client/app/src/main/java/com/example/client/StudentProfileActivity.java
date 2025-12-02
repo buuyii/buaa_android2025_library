@@ -184,24 +184,31 @@ public class StudentProfileActivity extends AppCompatActivity {
             public void onClick(View v) {
                 // Delete account from database
                 AppDataBase.databaseWriteExecutor.execute(() -> {
-                    AppDataBase.getInstance(getApplicationContext()).studentDao().delete(currentStudent);
-                    
-                    // Clear user session
-                    SharedPreferences sharedPreferences = getSharedPreferences("library_app", MODE_PRIVATE);
-                    SharedPreferences.Editor editor = sharedPreferences.edit();
-                    editor.clear();
-                    editor.apply();
-                    
-                    runOnUiThread(() -> {
-                        Toast.makeText(StudentProfileActivity.this, "账号已注销", Toast.LENGTH_SHORT).show();
-                        dialog.dismiss();
+                    try {
+                        AppDataBase.getInstance(getApplicationContext()).studentDao().delete(currentStudent);
                         
-                        // Redirect to login screen
-                        Intent intent = new Intent(StudentProfileActivity.this, LoginStudent.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                        finish();
-                    });
+                        // Clear user session
+                        SharedPreferences sharedPreferences = getSharedPreferences("library_app", MODE_PRIVATE);
+                        SharedPreferences.Editor editor = sharedPreferences.edit();
+                        editor.clear();
+                        editor.apply();
+                        
+                        runOnUiThread(() -> {
+                            Toast.makeText(StudentProfileActivity.this, "账号已注销", Toast.LENGTH_SHORT).show();
+                            dialog.dismiss();
+                            
+                            // Redirect to login screen
+                            Intent intent = new Intent(StudentProfileActivity.this, LoginStudent.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                            finish();
+                        });
+                    } catch (Exception e) {
+                        runOnUiThread(() -> {
+                            Toast.makeText(StudentProfileActivity.this, "注销账号失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                            dialog.dismiss();
+                        });
+                    }
                 });
             }
         });

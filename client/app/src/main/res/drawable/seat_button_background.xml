@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- State for enabled button (available seat) -->
+    <item android:state_enabled="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/seat_available" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+
+    <!-- State for disabled button (occupied or reserved seat) -->
+    <item android:state_enabled="false">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/seat_occupied" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+</selector>

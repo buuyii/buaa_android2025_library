@@ -11,7 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-@Database(entities = {Student.class, Seat.class, TimeSlot.class, ReservationRecord.class, StudyRecord.class}, version = 3, exportSchema = false)
+@Database(entities = {Student.class, Seat.class, TimeSlot.class, ReservationRecord.class, StudyRecord.class}, version = 6, exportSchema = false)
 @TypeConverters({Converters.class})
 public abstract class AppDataBase extends RoomDatabase {
     private static final int NUMBER_OF_THREADS = 4;
@@ -24,7 +24,7 @@ public abstract class AppDataBase extends RoomDatabase {
                 if (db == null) {
                     db = Room.databaseBuilder(context.getApplicationContext(),
                             AppDataBase.class, "dbRoom")
-                            .fallbackToDestructiveMigration()
+                            .fallbackToDestructiveMigration() // This will clear the db on version change
                             .addCallback(sRoomDatabaseCallback)
                             .build();
                 }
@@ -51,9 +51,9 @@ public abstract class AppDataBase extends RoomDatabase {
                     new TimeSlot("17:00", "23:00")
                 );
 
-                // Populate seats
+                // Populate seats, now only 20 per floor
                 for (int floor = 1; floor <= 6; floor++) {
-                    for (int number = 1; number <= 100; number++) {
+                    for (int number = 1; number <= 20; number++) {
                         seatDao.insertAll(new Seat(floor, number, "available"));
                     }
                 }

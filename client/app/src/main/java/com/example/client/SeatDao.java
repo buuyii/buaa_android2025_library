@@ -29,4 +29,7 @@ public interface SeatDao {
 
     @Query("SELECT * FROM seats WHERE floor = :floor ORDER BY seatNumber ASC")
     List<Seat> getSeatsByFloor(int floor);
+
+    @Query("SELECT * FROM seats WHERE status = :status")
+    List<Seat> getSeatsByStatus(String status);
 }

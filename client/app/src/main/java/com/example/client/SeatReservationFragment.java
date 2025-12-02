@@ -19,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
+import androidx.viewpager2.widget.ViewPager2;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -31,11 +32,17 @@ public class SeatReservationFragment extends Fragment {
 
     private static final long CHECK_INTERVAL_MS = 60 * 1000; // 1 minute
     private static final long NO_SHOW_GRACE_PERIOD_MS = 30 * 60 * 1000; // 30 minutes
+    private static final long BANNER_SWITCH_INTERVAL_MS = 2000; // 2 seconds
 
     private TextView seatStatusText;
     private Spinner floorSpinner, seatSpinner, timeslotSpinner;
     private Button reserveButton, cancelButton, checkinButton, checkoutButton;
     private View selectionLayout;
+    private ViewPager2 announcementBanner;
+    private BannerAdapter bannerAdapter;
+    private Handler bannerHandler;
+    private Runnable bannerRunnable;
+    private int currentPage = 0;
 
     private AppDataBase db;
     private final int studentId = 1; // Hardcoded student ID
@@ -54,6 +61,7 @@ public class SeatReservationFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_seat_reservation, container, false);
         db = AppDataBase.getInstance(getContext());
         initializeViews(view);
+        setupBanner();
         setupListeners();
         return view;
     }
@@ -81,12 +89,14 @@ public class SeatReservationFragment extends Fragment {
         populateSpinners();
         updateUIState();
         startPeriodicChecks();
+        startBannerAutoScroll();
     }
 
     @Override
     public void onPause() {
         super.onPause();
         stopPeriodicChecks();
+        stopBannerAutoScroll();
     }
 
     private void initializeViews(View view) {
@@ -100,6 +110,45 @@ public class SeatReservationFragment extends Fragment {
         checkoutButton = view.findViewById(R.id.checkout_button);
         selectionLayout = view.findViewById(R.id.selection_layout);
         graphicalSelectButton = view.findViewById(R.id.graphical_select_button);
+        announcementBanner = view.findViewById(R.id.announcement_banner);
+    }
+
+    private void setupBanner() {
+        // Using banner images for the announcement banner
+        int[] bannerImages = {
+                R.drawable.banner1,
+                R.drawable.banner2,
+                R.drawable.banner3,
+                R.drawable.banner4
+        };
+
+        bannerAdapter = new BannerAdapter(bannerImages);
+        announcementBanner.setAdapter(bannerAdapter);
+        
+        // Set up auto-scrolling
+        bannerHandler = new Handler(Looper.getMainLooper());
+    }
+
+    private void startBannerAutoScroll() {
+        if (bannerRunnable == null) {
+            bannerRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    if (bannerAdapter.getItemCount() == 0) return;
+                    
+                    currentPage = (currentPage + 1) % bannerAdapter.getItemCount();
+                    announcementBanner.setCurrentItem(currentPage, true);
+                    bannerHandler.postDelayed(this, BANNER_SWITCH_INTERVAL_MS);
+                }
+            };
+        }
+        bannerHandler.postDelayed(bannerRunnable, BANNER_SWITCH_INTERVAL_MS);
+    }
+
+    private void stopBannerAutoScroll() {
+        if (bannerHandler != null && bannerRunnable != null) {
+            bannerHandler.removeCallbacks(bannerRunnable);
+        }
     }
 
     private void setupListeners() {
@@ -128,8 +177,15 @@ public class SeatReservationFragment extends Fragment {
             Date today = getStartOfDay(now);
 
             for (TimeSlot ts : allTimeSlots) {
+                Date startTime = getDateForTimeString(ts.startTime, today);
                 Date endTime = getDateForTimeString(ts.endTime, today);
-                if (endTime != null && now.before(endTime)) {
+                
+                // A time slot is available if:
+                // 1. It hasn't ended yet (current time is before end time)
+                // 2. Either it hasn't started yet (current time is before start time) OR
+                //    it's currently ongoing (current time is after or equal to start time)
+                if (endTime != null && now.before(endTime) && 
+                   (startTime != null && (now.before(startTime) || !startTime.after(now)))) {
                     availableTimeSlots.add(ts);
                 }
             }

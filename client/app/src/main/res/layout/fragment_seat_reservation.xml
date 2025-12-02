@@ -9,11 +9,17 @@
     android:background="@drawable/transparent_lib_main"
     tools:context=".SeatReservationFragment">
 
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/announcement_banner"
+        android:layout_width="match_parent"
+        android:layout_height="160dp"
+        android:layout_marginBottom="5dp" />
+
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="30dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginTop="5dp"
+        android:layout_marginBottom="5dp"
         app:cardCornerRadius="12dp"
         app:cardElevation="4dp">
 
@@ -92,14 +98,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_marginTop="16dp">
+        android:layout_marginTop="5dp">
 
         <Button
             android:id="@+id/reserve_button"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="预约座位"
-            android:layout_marginBottom="8dp"
             style="@style/Widget.MaterialComponents.Button" />
 
         <Button

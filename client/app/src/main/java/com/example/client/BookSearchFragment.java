@@ -9,6 +9,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -22,6 +23,22 @@ public class BookSearchFragment extends Fragment {
     private RecyclerView booksRecyclerView;
     private BookAdapter bookAdapter;
     private List<Book> bookList;
+    
+    // 简化版图书列表组件
+    private RecyclerView hotBooksRecycler;
+    private RecyclerView newBooksRecycler;
+    private RecyclerView recommendedBooksRecycler;
+    
+    // 简化版图书适配器
+    private SimpleBookAdapter hotBooksAdapter;
+    private SimpleBookAdapter newBooksAdapter;
+    private SimpleBookAdapter recommendedBooksAdapter;
+    
+    // 推荐板块的标题组件
+    private View hotBooksTitle;
+    private View newBooksTitle;
+    private View recommendedBooksTitle;
+    
     private Button searchHistoryButton;
     private Button favoriteBooksButton;
     private Button bookCategoriesButton;
@@ -37,6 +54,17 @@ public class BookSearchFragment extends Fragment {
 
         searchInput = view.findViewById(R.id.search_input);
         booksRecyclerView = view.findViewById(R.id.books_recycler_view);
+        
+        // 初始化简化版图书列表组件
+        hotBooksRecycler = view.findViewById(R.id.hot_books_recycler);
+        newBooksRecycler = view.findViewById(R.id.new_books_recycler);
+        recommendedBooksRecycler = view.findViewById(R.id.recommended_books_recycler);
+        
+        // 初始化推荐板块标题
+        hotBooksTitle = view.findViewById(R.id.hot_books_title);
+        newBooksTitle = view.findViewById(R.id.new_books_title);
+        recommendedBooksTitle = view.findViewById(R.id.recommended_books_title);
+        
         searchHistoryButton = view.findViewById(R.id.search_history_button);
         favoriteBooksButton = view.findViewById(R.id.favorite_books_button);
         bookCategoriesButton = view.findViewById(R.id.book_categories_button);
@@ -45,6 +73,9 @@ public class BookSearchFragment extends Fragment {
         bookAdapter = new BookAdapter(bookList);
         booksRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         booksRecyclerView.setAdapter(bookAdapter);
+        
+        // 禁用嵌套滚动，使ScrollView能够正确处理滚动
+        booksRecyclerView.setNestedScrollingEnabled(false);
 
         // 添加书籍点击监听器
         bookAdapter.setOnBookClickListener(book -> {
@@ -94,6 +125,9 @@ public class BookSearchFragment extends Fragment {
 
         // 初始化示例数据
         initializeSampleData();
+        
+        // 初始化推荐图书数据
+        initRecommendedBooks();
 
         return view;
     }
@@ -142,6 +176,15 @@ public class BookSearchFragment extends Fragment {
         if (!query.isEmpty()) {
             // 这里应该调用实际的搜索API
             filterBooks(query);
+            // 显示图书列表
+            booksRecyclerView.setVisibility(View.VISIBLE);
+            // 隐藏推荐板块
+            hideRecommendSections();
+        } else {
+            // 如果搜索关键词为空，隐藏图书列表
+            booksRecyclerView.setVisibility(View.GONE);
+            // 显示推荐板块
+            showRecommendSections();
         }
     }
 
@@ -291,6 +334,191 @@ public class BookSearchFragment extends Fragment {
 
         bookAdapter.updateList(bookList);
     }
+    
+    private void initRecommendedBooks() {
+        // 创建热门图书列表（10本书）
+        List<Book> hotBooks = new ArrayList<>();
+        hotBooks.add(new Book("Java核心技术", "Cay S. Horstmann", "机械工业出版社", "2020", 
+                "Java领域的经典权威著作，全面覆盖Java SE 9、10、11新特性，深入讲解面向对象编程、异常处理、泛型、集合框架等核心概念，是Java开发者必备的参考书。"));
+        hotBooks.add(new Book("算法导论", "Thomas H. Cormen", "机械工业出版社", "2013", 
+                "算法领域的圣经级教材，系统全面地介绍了算法设计与分析的基本概念，涵盖排序、搜索、图算法、动态规划等经典算法，配有大量习题，适合计算机专业学生和研究人员。"));
+        hotBooks.add(new Book("设计模式", "Gang of Four", "机械工业出版社", "2010", 
+                "软件工程领域的里程碑式著作，介绍23种经典设计模式，帮助开发者编写可复用、可维护的面向对象软件，是每个程序员都应该掌握的设计原则和最佳实践。"));
+        hotBooks.add(new Book("重构", "Martin Fowler", "人民邮电出版社", "2019", 
+                "软件开发大师Martin Fowler的经典之作，详细介绍如何在不改变软件外部行为的前提下改善代码质量，提升系统可维护性，是提高代码质量和开发效率的必读书籍。"));
+        hotBooks.add(new Book("代码大全", "Steve McConnell", "电子工业出版社", "2006", 
+                "软件构建领域的经典著作，全面介绍软件构造的最佳实践，涵盖变量命名、控制结构、代码布局、调试技术等，帮助程序员写出高质量代码。"));
+        hotBooks.add(new Book("计算机网络", "谢希仁", "电子工业出版社", "2017",
+                "国内最权威的计算机网络教材之一，系统介绍计算机网络的基本原理和关键技术，涵盖OSI模型、TCP/IP协议族、网络安全等内容，理论与实践相结合。"));
+        hotBooks.add(new Book("操作系统概念", "Abraham Silberschatz", "机械工业出版社", "2018",
+                "操作系统领域的经典教材，全面介绍进程管理、内存管理、文件系统、分布式系统等核心概念，帮助读者深入理解操作系统的工作原理。"));
+        hotBooks.add(new Book("数据库系统概念", "Abraham Silberschatz", "机械工业出版社", "2019",
+                "数据库领域的权威教材，系统阐述关系数据库理论、SQL语言、事务处理、并发控制等核心知识，理论与实践并重，适合数据库学习者和从业者。"));
+        hotBooks.add(new Book("编译原理", "Alfred V. Aho", "人民邮电出版社", "2013",
+                "编译器设计领域的经典教材，详细介绍词法分析、语法分析、语义分析、代码生成等编译过程，是理解和实现编程语言处理工具的重要参考资料。"));
+        hotBooks.add(new Book("计算机组成与设计", "David A. Patterson", "机械工业出版社", "2014",
+                "计算机体系结构领域的权威教材，从数字逻辑电路到处理器设计，全面介绍计算机硬件系统的工作原理和设计方法。"));
 
+        // 创建新书列表（10本书）
+        List<Book> newBooks = new ArrayList<>();
+        newBooks.add(new Book("深入理解Java虚拟机", "周志明", "机械工业出版社", "2019", 
+                "深入剖析JVM工作机制，涵盖类加载机制、内存模型、垃圾回收、性能调优等高级主题，是Java高级开发者的必备参考书。"));
+        newBooks.add(new Book("微服务架构设计模式", "Chris Richardson", "机械工业出版社", "2019", 
+                "微服务架构的设计模式和实践指南，介绍服务拆分、数据管理、服务发现、容错处理等关键技术，帮助开发者构建可靠的分布式系统。"));
+        newBooks.add(new Book("Kubernetes权威指南", "龚正", "电子工业出版社", "2019", 
+                "容器编排平台Kubernetes的权威指南，全面介绍Pod、Service、Deployment等核心概念，帮助读者掌握容器集群管理技术。"));
+        newBooks.add(new Book("Spring实战", "Craig Walls", "人民邮电出版社", "2019", 
+                "Spring框架的实用指南，详细介绍Spring Core、Spring MVC、Spring Boot等技术，帮助开发者快速掌握企业级Java开发。"));
+        newBooks.add(new Book("Effective Java", "Joshua Bloch", "机械工业出版社", "2019", 
+                "Java编程的最佳实践指南，提供78条具体的建议帮助开发者写出更加健壮、高效、可维护的Java代码。"));
+        newBooks.add(new Book("Android开发艺术探索", "任玉刚", "电子工业出版社", "2019",
+                "一线Android工程师的经典力作，深入剖析Android系统级开发的核心技术，涵盖四大组件工作原理、View体系、动画机制、Window机制等难点，帮助读者掌握Android开发精髓。"));
+        newBooks.add(new Book("机器学习", "周志华", "清华大学出版社", "2016",
+                "被誉为\"西瓜书\"的机器学习经典教材，系统介绍监督学习、无监督学习、强化学习等各种机器学习方法，理论深入浅出，实例丰富。"));
+        newBooks.add(new Book("深度学习", "Ian Goodfellow", "人民邮电出版社", "2017",
+                "深度学习领域的权威教材，由该领域顶级专家撰写，全面介绍神经网络、卷积网络、循环网络、生成模型等深度学习核心技术。"));
+        newBooks.add(new Book("Python编程:从入门到实践", "Eric Matthes", "人民邮电出版社", "2016",
+                "广受欢迎的Python入门教材，通过实际项目引导读者学习Python编程，涵盖数据可视化、Web开发等应用领域，适合初学者快速上手。"));
+        newBooks.add(new Book("软件工程", "Ian Sommerville", "机械工业出版社", "2016",
+                "软件工程领域的标准教材，涵盖软件开发生命周期、需求工程、设计模式、测试策略等各个方面，帮助读者掌握现代软件工程的最佳实践。"));
 
+        // 创建推荐图书列表（10本书）
+        List<Book> recommendedBooks = new ArrayList<>();
+        recommendedBooks.add(new Book("程序员修炼之道", "Andrew Hunt", "电子工业出版社", "2011", 
+                "程序员必读的经典指南，介绍软件开发中的实用技巧和哲学思想，帮助程序员提升技能、改善工作流程，成为更专业的开发者。"));
+        recommendedBooks.add(new Book("人月神话", "Frederick P. Brooks", "清华大学出版社", "2015", 
+                "软件项目管理的经典著作，探讨软件开发的本质复杂性和项目管理的挑战，提出的\"人月\"概念对软件工程影响深远。"));
+        recommendedBooks.add(new Book("计算机程序的构造和解释", "Harold Abelson", "机械工业出版社", "2015", 
+                "MIT经典教材，使用Scheme语言讲授计算机科学核心概念，强调程序设计的思想和方法，培养计算思维能力。"));
+        recommendedBooks.add(new Book("黑客与画家", "Paul Graham", "人民邮电出版社", "2013", 
+                "著名程序员Paul Graham的随笔集，探讨编程语言设计、创业经验、技术趋势等话题，充满洞察力和启发性。"));
+        recommendedBooks.add(new Book("数学之美", "吴军", "人民邮电出版社", "2014", 
+                "揭示数学在信息技术中应用的美妙之处，涵盖自然语言处理、统计语言模型、信息检索等领域的数学原理，展现数学的力量。"));
+        recommendedBooks.add(new Book("人工智能:一种现代的方法", "Stuart Russell", "清华大学出版社", "2019",
+                "AI领域的权威教材，系统介绍智能代理、问题求解、知识表示、机器学习、自然语言处理等AI核心主题，理论与应用并重。"));
+        recommendedBooks.add(new Book("你不知道的JavaScript", "Kyle Simpson", "人民邮电出版社", "2015",
+                "深入挖掘JavaScript语言的核心机制和工作原理，帮助开发者真正理解JavaScript的作用域、闭包、this绑定等重要概念。"));
+        recommendedBooks.add(new Book("Vue.js实战", "梁灏", "电子工业出版社", "2019",
+                "Vue.js框架的实践指南，从基础概念到项目实战，全面介绍Vue的核心特性和生态系统，适合前端开发者学习和应用。"));
+        recommendedBooks.add(new Book("Docker技术入门与实战", "杨保华", "机械工业出版社", "2018",
+                "容器技术Docker的入门与实践指南，介绍镜像制作、容器管理、网络配置、数据持久化等核心技术，帮助开发者快速掌握容器化部署。"));
+        recommendedBooks.add(new Book("Linux命令行与shell脚本编程大全", "Richard Blum", "人民邮电出版社", "2016",
+                "Linux系统管理和Shell编程的权威指南，详细介绍常用命令、文本处理、进程管理、脚本编写等技能，是Linux用户的必备参考。"));
+
+        // 初始化适配器
+        hotBooksAdapter = new SimpleBookAdapter(hotBooks);
+        newBooksAdapter = new SimpleBookAdapter(newBooks);
+        recommendedBooksAdapter = new SimpleBookAdapter(recommendedBooks);
+        
+        // 设置布局管理器为垂直方向
+        hotBooksRecycler.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false));
+        newBooksRecycler.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false));
+        recommendedBooksRecycler.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false));
+        
+        // 启用嵌套滚动，以便在ScrollView中正确滚动
+        hotBooksRecycler.setNestedScrollingEnabled(true);
+        newBooksRecycler.setNestedScrollingEnabled(true);
+        recommendedBooksRecycler.setNestedScrollingEnabled(true);
+        
+        // 添加滚动监听器来更新活跃项
+        hotBooksRecycler.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                updateActiveItem(recyclerView, hotBooksAdapter);
+            }
+        });
+        
+        newBooksRecycler.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                updateActiveItem(recyclerView, newBooksAdapter);
+            }
+        });
+        
+        recommendedBooksRecycler.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                updateActiveItem(recyclerView, recommendedBooksAdapter);
+            }
+        });
+        
+        // 设置适配器
+        hotBooksRecycler.setAdapter(hotBooksAdapter);
+        newBooksRecycler.setAdapter(newBooksAdapter);
+        recommendedBooksRecycler.setAdapter(recommendedBooksAdapter);
+        
+        // 设置书籍点击监听器
+        hotBooksAdapter.setOnBookClickListener(book -> {
+            BookDetailFragment detailFragment = BookDetailFragment.newInstance(book);
+            if (getActivity() != null) {
+                getActivity().getSupportFragmentManager()
+                        .beginTransaction()
+                        .replace(R.id.fragment_container, detailFragment)
+                        .addToBackStack(null)
+                        .commit();
+            }
+        });
+        
+        newBooksAdapter.setOnBookClickListener(book -> {
+            BookDetailFragment detailFragment = BookDetailFragment.newInstance(book);
+            if (getActivity() != null) {
+                getActivity().getSupportFragmentManager()
+                        .beginTransaction()
+                        .replace(R.id.fragment_container, detailFragment)
+                        .addToBackStack(null)
+                        .commit();
+            }
+        });
+        
+        recommendedBooksAdapter.setOnBookClickListener(book -> {
+            BookDetailFragment detailFragment = BookDetailFragment.newInstance(book);
+            if (getActivity() != null) {
+                getActivity().getSupportFragmentManager()
+                        .beginTransaction()
+                        .replace(R.id.fragment_container, detailFragment)
+                        .addToBackStack(null)
+                        .commit();
+            }
+        });
+    }
+    
+    /**
+     * 根据滚动位置更新活跃项
+     */
+    private void updateActiveItem(RecyclerView recyclerView, SimpleBookAdapter adapter) {
+        LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
+        if (layoutManager != null) {
+            int firstVisiblePosition = layoutManager.findFirstVisibleItemPosition();
+            if (firstVisiblePosition != RecyclerView.NO_POSITION) {
+                adapter.setActivePosition(firstVisiblePosition);
+            }
+        }
+    }
+    
+    /**
+     * 隐藏推荐板块（热门图书、新书速递、馆藏推荐）
+     */
+    private void hideRecommendSections() {
+        hotBooksTitle.setVisibility(View.GONE);
+        hotBooksRecycler.setVisibility(View.GONE);
+        newBooksTitle.setVisibility(View.GONE);
+        newBooksRecycler.setVisibility(View.GONE);
+        recommendedBooksTitle.setVisibility(View.GONE);
+        recommendedBooksRecycler.setVisibility(View.GONE);
+    }
+    
+    /**
+     * 显示推荐板块（热门图书、新书速递、馆藏推荐）
+     */
+    private void showRecommendSections() {
+        hotBooksTitle.setVisibility(View.VISIBLE);
+        hotBooksRecycler.setVisibility(View.VISIBLE);
+        newBooksTitle.setVisibility(View.VISIBLE);
+        newBooksRecycler.setVisibility(View.VISIBLE);
+        recommendedBooksTitle.setVisibility(View.VISIBLE);
+        recommendedBooksRecycler.setVisibility(View.VISIBLE);
+    }
 }

@@ -51,10 +51,18 @@ public abstract class AppDataBase extends RoomDatabase {
                     new TimeSlot("17:00", "23:00")
                 );
 
-                // Populate seats, now only 20 per floor
+                // Populate 64 seats per floor in an 8x8 grid
                 for (int floor = 1; floor <= 6; floor++) {
-                    for (int number = 1; number <= 20; number++) {
-                        seatDao.insertAll(new Seat(floor, number, "available"));
+                    for (int i = 0; i < 64; i++) {
+                        int row = i / 8;
+                        int col = i % 8;
+                        int seatNumber = i + 1;
+
+                        // Normalize coordinates to be between 0.1 and 0.9 to avoid being too close to the edge
+                        float relativeX = 0.1f + (col / 7.0f) * 0.8f;
+                        float relativeY = 0.1f + (row / 7.0f) * 0.8f;
+
+                        seatDao.insertAll(new Seat(floor, seatNumber, "available", relativeX, relativeY));
                     }
                 }
             });

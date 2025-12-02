@@ -295,6 +295,7 @@ public class SeatReservationFragment extends Fragment {
             handler.post(() -> {
                 Toast.makeText(getContext(), "预约成功!", Toast.LENGTH_SHORT).show();
                 updateUIState();
+                updateSeatAvailability();
             });
         });
     }
@@ -316,6 +317,7 @@ public class SeatReservationFragment extends Fragment {
     private void runSeatReleaseChecks() {
         Date now = new Date();
         Date today = getStartOfDay(now);
+        final boolean[] availabilityHasChanged = {false};
 
         List<ReservationRecord> reservations = db.reservationRecordDao().getReservationsByDate(today);
         for (ReservationRecord r : reservations) {
@@ -334,6 +336,9 @@ public class SeatReservationFragment extends Fragment {
 
                     if (now.getTime() > checkInDeadline) {
                         db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
+                        db.seatDao().updateSeatStatus(r.seatId, "available");
+                        availabilityHasChanged[0] = true;
+
                         if (r.studentId == studentId) {
                             handler.post(() -> {
                                 if (isResumed() && getContext() != null) {
@@ -363,6 +368,7 @@ public class SeatReservationFragment extends Fragment {
                     sr.endTime = endTime;
                     db.studyRecordDao().update(sr);
                     db.seatDao().updateSeatStatus(sr.seatId, "available");
+                    availabilityHasChanged[0] = true;
                     db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
 
                     if (sr.studentId == studentId) {
@@ -380,6 +386,10 @@ public class SeatReservationFragment extends Fragment {
                 }
             }
         }
+        
+        if(availabilityHasChanged[0]){
+            handler.post(this::updateSeatAvailability);
+        }
     }
 
     private void handleCancellation() {
@@ -388,9 +398,11 @@ public class SeatReservationFragment extends Fragment {
             ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
             if (reservation != null) {
                 db.reservationRecordDao().deleteReservation(reservation.studentId, reservation.seatId, reservation.timeSlotId, reservation.reservationDate);
+                db.seatDao().updateSeatStatus(reservation.seatId, "available");
                 handler.post(() -> {
                     Toast.makeText(getContext(), "预约已取消", Toast.LENGTH_SHORT).show();
                     updateUIState();
+                    updateSeatAvailability();
                 });
             }
         });
@@ -407,6 +419,7 @@ public class SeatReservationFragment extends Fragment {
                 handler.post(() -> {
                     Toast.makeText(getContext(), "签到成功!", Toast.LENGTH_SHORT).show();
                     updateUIState();
+                    updateSeatAvailability();
                 });
             }
         });
@@ -429,6 +442,7 @@ public class SeatReservationFragment extends Fragment {
                 handler.post(() -> {
                     Toast.makeText(getContext(), "签退成功!", Toast.LENGTH_SHORT).show();
                     updateUIState();
+                    updateSeatAvailability();
                 });
             }
         });

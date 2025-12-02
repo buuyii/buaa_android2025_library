@@ -1,5 +1,6 @@
 package com.example.client;
 
+import android.app.AlertDialog;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -7,9 +8,12 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 
 import androidx.fragment.app.Fragment;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -27,6 +31,7 @@ public class StudyStatsFragment extends Fragment {
     private TextView dailyEndTimeText;
     private TextView weeklyTotalTimeText;
     private StatisticsChartView weeklyChart;
+    private Button historyButton;
     
     private AppDataBase db;
     private final Executor executor = Executors.newSingleThreadExecutor();
@@ -50,6 +55,9 @@ public class StudyStatsFragment extends Fragment {
         dailyEndTimeText = view.findViewById(R.id.daily_end_time);
         weeklyTotalTimeText = view.findViewById(R.id.weekly_total_time);
         weeklyChart = view.findViewById(R.id.weekly_chart);
+        historyButton = view.findViewById(R.id.history_button);
+        
+        historyButton.setOnClickListener(v -> showStudyHistory());
         
         return view;
     }
@@ -267,6 +275,34 @@ public class StudyStatsFragment extends Fragment {
             // 设置图表数据（仅周报图表），固定使用柱状图
             weeklyChart.setChartData(weeklyChartData);
             weeklyChart.setChartType(StatisticsChartView.ChartType.BAR_CHART);
+        });
+    }
+    
+    private void showStudyHistory() {
+        executor.execute(() -> {
+            // 获取所有学习记录，按开始时间倒序排序（最新的在前）
+            List<StudyRecord> allStudyRecords = db.studyRecordDao().getAllStudyRecordsForStudent(1);
+            
+            // 获取所有座位信息
+            List<Seat> seats = db.seatDao().getAllSeats();
+            
+            handler.post(() -> {
+                // 创建对话框
+                AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+                LayoutInflater inflater = LayoutInflater.from(requireContext());
+                View dialogView = inflater.inflate(R.layout.dialog_reservation_history, null);
+                builder.setView(dialogView);
+                
+                AlertDialog dialog = builder.create();
+                
+                // 设置RecyclerView
+                RecyclerView recyclerView = dialogView.findViewById(R.id.recycler_view);
+                recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+                StudyRecordAdapter adapter = new StudyRecordAdapter(allStudyRecords, seats);
+                recyclerView.setAdapter(adapter);
+                
+                dialog.show();
+            });
         });
     }
 }

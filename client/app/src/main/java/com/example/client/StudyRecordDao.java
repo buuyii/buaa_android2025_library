@@ -26,4 +26,7 @@ public interface StudyRecordDao {
 
     @Query("SELECT * FROM study_records WHERE startTime BETWEEN :startDate AND :endDate AND endTime IS NOT NULL")
     List<StudyRecord> getStudyRecordsBetween(Date startDate, Date endDate);
+    
+    @Query("SELECT * FROM study_records WHERE studentId = :studentId ORDER BY startTime DESC")
+    List<StudyRecord> getAllStudyRecordsForStudent(int studentId);
 }

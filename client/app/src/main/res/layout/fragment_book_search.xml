@@ -28,7 +28,9 @@
                 android:layout_height="wrap_content"
                 android:imeOptions="actionSearch"
                 android:background="@color/white"
-                android:inputType="text" />
+                android:inputType="text"
+                android:focusable="true"
+                android:focusableInTouchMode="true" />
         </com.google.android.material.textfield.TextInputLayout>
 
     </androidx.cardview.widget.CardView>
@@ -178,13 +180,5 @@
         </LinearLayout>
 
     </androidx.cardview.widget.CardView>
-
-    <!-- 图书列表（默认隐藏，仅在搜索时显示） -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/books_recycler_view"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:nestedScrollingEnabled="false"
-        android:visibility="gone" />
 
 </LinearLayout>

@@ -6,9 +6,10 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-
+import androidx.annotation.Nullable;
 import com.github.chrisbanes.photoview.PhotoView;
 
 import java.util.ArrayList;
@@ -16,47 +17,60 @@ import java.util.List;
 
 public class SeatOverlayView extends View {
 
-    // 点击回调接口
+    // --- Callbacks ---
     public interface OnSeatClickListener {
         void onSeatClicked(Seat seat);
     }
 
+    public interface OnSeatMoveListener {
+        void onSeatMoved(Seat seat);
+    }
+
     private OnSeatClickListener clickListener;
+    private OnSeatMoveListener moveListener;
 
     public void setOnSeatClickListener(OnSeatClickListener listener) {
         this.clickListener = listener;
     }
 
+    public void setOnSeatMoveListener(OnSeatMoveListener listener) {
+        this.moveListener = listener;
+    }
+
+    // -- View State --
     private List<Seat> seats = new ArrayList<>();
-    private Paint seatPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint seatPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private PhotoView photoView;
 
-    // 方块基础大小（px），可以根据实际屏幕微调
-    private float seatBlockSize = 40f;
-    // 点击容错范围（px）
-    private float clickPadding = 10f;
+    // -- Configuration --
+    private final float seatBlockSize = 20f;
+    private final float clickPadding = 10f;
 
-    // 用于追踪按下的座位
-    private Seat downSeat = null;
+    // -- Edit & Drag State --
+    private boolean isEditMode = false;
+    private Seat seatBeingDragged = null;
+    private float dragOffsetX, dragOffsetY;
 
-    public SeatOverlayView(Context context, AttributeSet attrs) {
+    public SeatOverlayView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
     }
 
-    /**
-     * 绑定要绘制的座位
-     */
     public void setSeats(List<Seat> seatList) {
         this.seats = seatList;
         invalidate();
     }
 
-    /**
-     * 绑定 PhotoView，以跟随缩放和平移
-     */
     public void bindPhotoView(PhotoView pv) {
         this.photoView = pv;
+        // Redraw overlay when the background image's matrix changes (zoom/pan)
         pv.setOnMatrixChangeListener(rect -> invalidate());
+    }
+
+    public void setEditMode(boolean isEditMode) {
+        this.isEditMode = isEditMode;
+        // Disable the parent PhotoView's touch interception when in edit mode
+        photoView.setZoomable(!isEditMode);
+        invalidate(); // Redraw to show edit mode visuals if any
     }
 
     @Override
@@ -64,63 +78,88 @@ public class SeatOverlayView extends View {
         super.onDraw(canvas);
         if (photoView == null || seats == null) return;
 
-        RectF rect = photoView.getDisplayRect();
+        final RectF rect = photoView.getDisplayRect();
         if (rect == null) return;
 
         for (Seat seat : seats) {
-            // 将相对坐标转换成屏幕坐标
             float x = rect.left + seat.relativeX * rect.width();
             float y = rect.top + seat.relativeY * rect.height();
 
-            // 颜色根据状态显示
+            // Set color based on availability
             seatPaint.setColor(seat.isAvailable() ? Color.GREEN : Color.RED);
+            // Add a visual indicator for edit mode (e.g., slight transparency)
+            seatPaint.setAlpha(isEditMode ? 200 : 255);
 
             float halfSize = (seatBlockSize / 2f) * photoView.getScale();
-            canvas.drawRect(
-                    x - halfSize,
-                    y - halfSize,
-                    x + halfSize,
-                    y + halfSize,
-                    seatPaint
-            );
+            canvas.drawRect(x - halfSize, y - halfSize, x + halfSize, y + halfSize, seatPaint);
         }
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (photoView == null || seats == null || seats.isEmpty()) {
-            return false;
+        if (seats == null || seats.isEmpty()) {
+            return false; // No seats, do nothing
         }
 
+        if (isEditMode) {
+            return handleEditModeTouch(event);
+        } else {
+            return handleNormalModeTouch(event);
+        }
+    }
+
+    private boolean handleNormalModeTouch(MotionEvent event) {
+        // Standard click handling
+        if (event.getAction() == MotionEvent.ACTION_UP) {
+            Seat clickedSeat = findSeatAt(event.getX(), event.getY());
+            if (clickedSeat != null && clickedSeat.isAvailable() && clickListener != null) {
+                clickListener.onSeatClicked(clickedSeat);
+                return true; // Consume the event
+            }
+        }
+        // We return true on ACTION_DOWN if a seat is under the press, which allows ACTION_UP to be received.
+        return event.getAction() == MotionEvent.ACTION_DOWN && findSeatAt(event.getX(), event.getY()) != null;
+    }
+
+    private boolean handleEditModeTouch(MotionEvent event) {
         switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN: {
-                downSeat = findSeatAt(event.getX(), event.getY());
-                // 如果我们点击了一个可用座位，我们就对这个手势感兴趣。
-                if (downSeat != null && downSeat.isAvailable()) {
+            case MotionEvent.ACTION_DOWN:
+                seatBeingDragged = findSeatAt(event.getX(), event.getY());
+                if (seatBeingDragged != null) {
+                    // When dragging starts, we are interested in handling the move.
                     return true;
                 }
-                downSeat = null;
-                return false;
-            }
+                return false; // No seat found, let other views handle it.
 
-            case MotionEvent.ACTION_UP: {
-                if (downSeat != null) {
-                    Seat upSeat = findSeatAt(event.getX(), event.getY());
-                    if (upSeat == downSeat) { // 检查手指是否从同一个座位上抬起
-                        if (clickListener != null) {
-                            clickListener.onSeatClicked(downSeat);
-                        }
+            case MotionEvent.ACTION_MOVE:
+                if (seatBeingDragged != null) {
+                    RectF rect = photoView.getDisplayRect();
+                    if (rect == null || rect.width() == 0 || rect.height() == 0) break;
+
+                    // Convert screen touch coordinates to relative coordinates within the drawable
+                    float relativeX = (event.getX() - rect.left) / rect.width();
+                    float relativeY = (event.getY() - rect.top) / rect.height();
+
+                    // Update the seat's position, clamping to the [0, 1] bounds
+                    seatBeingDragged.relativeX = Math.max(0f, Math.min(1f, relativeX));
+                    seatBeingDragged.relativeY = Math.max(0f, Math.min(1f, relativeY));
+
+                    invalidate(); // Redraw the overlay to show the seat in its new position
+                    return true;
+                }
+                break;
+
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                if (seatBeingDragged != null) {
+                    // Fire the callback to notify that the seat has been moved to a new final position
+                    if (moveListener != null) {
+                        moveListener.onSeatMoved(seatBeingDragged);
                     }
-                    downSeat = null;
+                    seatBeingDragged = null; // Reset dragging state
                     return true;
                 }
-                return false;
-            }
-
-            case MotionEvent.ACTION_CANCEL: {
-                downSeat = null;
-                return false;
-            }
+                break;
         }
         return false;
     }
@@ -128,27 +167,28 @@ public class SeatOverlayView extends View {
     private Seat findSeatAt(float x, float y) {
         if (photoView == null) return null;
         RectF rect = photoView.getDisplayRect();
-        if (rect == null) {
-            return null;
-        }
+        if (rect == null) return null;
 
-        float halfSize = (seatBlockSize / 2f) * photoView.getScale();
+        float scaledHalfSize = (seatBlockSize / 2f) * photoView.getScale() + clickPadding;
 
-        for (Seat seat : seats) {
-            float seatX = rect.left + seat.relativeX * rect.width();
-            float seatY = rect.top + seat.relativeY * rect.height();
+        // Iterate backwards to prioritize seats drawn on top
+        for (int i = seats.size() - 1; i >= 0; i--) {
+            Seat seat = seats.get(i);
+            float seatCenterX = rect.left + seat.relativeX * rect.width();
+            float seatCenterY = rect.top + seat.relativeY * rect.height();
 
+            // Create a touchable area rect for the seat
             RectF seatRect = new RectF(
-                    seatX - halfSize - clickPadding,
-                    seatY - halfSize - clickPadding,
-                    seatX + halfSize + clickPadding,
-                    seatY + halfSize + clickPadding
+                seatCenterX - scaledHalfSize,
+                seatCenterY - scaledHalfSize,
+                seatCenterX + scaledHalfSize,
+                seatCenterY + scaledHalfSize
             );
 
             if (seatRect.contains(x, y)) {
                 return seat;
             }
         }
-        return null;
+        return null; // No seat found at this position
     }
 }

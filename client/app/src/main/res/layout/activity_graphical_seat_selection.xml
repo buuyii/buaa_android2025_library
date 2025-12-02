@@ -16,7 +16,8 @@
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" /> <!-- Background Image and Seats Container -->
+        app:layout_constraintTop_toTopOf="parent" />
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/seat_map_container"
         android:layout_width="0dp"
@@ -25,21 +26,20 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/floor_title_text"> <!-- SEAT LAYOUT AREA --> <!-- Buttons are now direct children of ConstraintLayout. --> <!-- You can drag them in the design editor, and their position is defined by bias constraints. -->
+        app:layout_constraintTop_toBottomOf="@+id/floor_title_text">
+
         <com.github.chrisbanes.photoview.PhotoView
             android:id="@+id/floor_background_image"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="fitCenter"
-            android:src="@drawable/library_floor_plan"
-            tools:ignore="ContentDescription"
-            tools:layout_editor_absoluteX="46dp"
-            tools:layout_editor_absoluteY="0dp" />
+            android:src="@drawable/library_floor_plan"            
+            tools:ignore="ContentDescription" />
+
         <com.example.client.SeatOverlayView
             android:id="@+id/seat_overlay"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clickable="true"
-            android:focusable="true" />
+            android:layout_height="match_parent" />
+            
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

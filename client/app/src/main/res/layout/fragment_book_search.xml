@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#EDF0F6">
+    android:background="@drawable/book_search_background"
+    android:orientation="vertical">
 
-    <LinearLayout
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
-
+        app:cardCornerRadius="30dp"
+        app:cardElevation="0dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="16dp">
+        
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
             android:hint="输入书名或作者"
             app:startIconDrawable="@drawable/ic_search"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
@@ -25,155 +28,157 @@
                 android:layout_height="wrap_content"
                 android:imeOptions="actionSearch"
                 android:background="@color/white"
-                android:inputType="text" />
+                android:inputType="text"
+                android:focusable="true"
+                android:focusableInTouchMode="true" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <LinearLayout
+    </androidx.cardview.widget.CardView>
+
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="8dp">
+        
+        <ImageView
             android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:src="@drawable/xueyuanlu"
+            android:contentDescription="图书搜索" />
+            
+    </androidx.cardview.widget.CardView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="16dp"
+        android:weightSum="3">
+
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="16dp"
-            android:weightSum="3">
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginEnd="4dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
 
-            <Button
+            <ImageButton
                 android:id="@+id/search_history_button"
-                android:layout_width="0dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_clock"
+                android:background="@null"
+                android:tint="@color/blue_500"
+                android:contentDescription="搜索记录"
+                android:scaleType="fitCenter" />
+
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="4dp"
                 android:text="搜索记录"
-                android:backgroundTint="@color/blue_500"
-                android:textColor="@color/white"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-            <Button
-                android:id="@+id/favorite_books_button"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:layout_marginEnd="4dp"
-                android:text="收藏图书"
-                android:backgroundTint="@color/blue_500"
-                android:textColor="@color/white"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-            <Button
-                android:id="@+id/book_categories_button"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:text="图书分类"
-                android:backgroundTint="@color/blue_500"
-                android:textColor="@color/white"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
+                android:textColor="@color/blue_500"
+                android:textSize="16sp"
+                android:layout_marginTop="4dp" />
         </LinearLayout>
 
-        <!-- 热门图书 -->
-        <TextView
-            android:id="@+id/hot_books_title"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="热门图书"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/blue_500"
-            android:layout_marginBottom="8dp" />
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="4dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
 
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
+            <ImageButton
+                android:id="@+id/favorite_books_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_star"
+                android:background="@null"
+                android:tint="@color/blue_500"
+                android:contentDescription="收藏图书"
+                android:scaleType="fitCenter" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="收藏图书"
+                android:textColor="@color/blue_500"
+                android:textSize="16sp"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:layout_marginStart="4dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless">
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="20dp"
-                android:background="@color/blue_500" />
+            <ImageButton
+                android:id="@+id/book_categories_button"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_book"
+                android:background="@null"
+                android:tint="@color/blue_500"
+                android:contentDescription="图书分类"
+                android:scaleType="fitCenter" />
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/hot_books_recycler"
-                android:layout_width="match_parent"
-                android:layout_height="200dp"
-                android:layout_marginTop="24dp"
-                android:nestedScrollingEnabled="false" />
-        </androidx.cardview.widget.CardView>
-
-        <!-- 新书速递 -->
-        <TextView
-            android:id="@+id/new_books_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="新书速递"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/blue_500"
-            android:layout_marginBottom="8dp"
-            android:layout_marginTop="8dp" />
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="20dp"
-                android:background="@color/blue_500" />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/new_books_recycler"
-                android:layout_width="match_parent"
-                android:layout_height="200dp"
-                android:layout_marginTop="24dp"
-                android:nestedScrollingEnabled="false" />
-        </androidx.cardview.widget.CardView>
-
-        <!-- 馆藏推荐 -->
-        <TextView
-            android:id="@+id/recommended_books_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="馆藏推荐"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/blue_500"
-            android:layout_marginBottom="8dp"
-            android:layout_marginTop="8dp" />
-
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="20dp"
-                android:background="@color/blue_500" />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recommended_books_recycler"
-                android:layout_width="match_parent"
-                android:layout_height="200dp"
-                android:layout_marginTop="24dp"
-                android:nestedScrollingEnabled="false" />
-        </androidx.cardview.widget.CardView>
-
-        <!-- 图书列表（默认隐藏，仅在搜索时显示） -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/books_recycler_view"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false"
-            android:visibility="gone" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="图书分类"
+                android:textColor="@color/blue_500"
+                android:textSize="16sp"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
 
     </LinearLayout>
 
-</ScrollView>
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="4dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical">
+
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tab_layout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@color/white"
+                app:tabIndicatorColor="@color/active_indicator"
+                app:tabMode="fixed"
+                app:tabGravity="fill" />
+
+            <androidx.viewpager2.widget.ViewPager2
+                android:id="@+id/view_pager"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
+</LinearLayout>

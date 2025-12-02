@@ -120,7 +120,7 @@ public class AiFragment extends Fragment {
         // 在后台线程中执行网络请求
         executor.execute(() -> {
             try {
-                String aiResponse = qwen.callWithMessage(userPrompt).getOutput().getChoices().get(0).getMessage().getContent();
+                String aiResponse = Qwen.callWithMessage(userPrompt).getOutput().getChoices().get(0).getMessage().getContent();
                 // 在主线程中更新UI
                 handler.post(() -> handleAiResponse(aiResponse));
             } catch (Exception e) {

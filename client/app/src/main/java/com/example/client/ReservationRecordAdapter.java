@@ -57,7 +57,7 @@ public class ReservationRecordAdapter extends RecyclerView.Adapter<ReservationRe
         
         // 显示签退时间（暂时显示为时间段结束）
         if (timeSlot != null) {
-            holder.checkOutTime.setText("时间段: " + timeSlot.toString());
+            holder.checkOutTime.setText("时间段: " + timeSlot);
         } else {
             holder.checkOutTime.setText("时间段: 未知");
         }

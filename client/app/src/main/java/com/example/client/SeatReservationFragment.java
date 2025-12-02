@@ -53,6 +53,7 @@ public class SeatReservationFragment extends Fragment {
     private ActivityResultLauncher<Intent> graphicalSeatLauncher;
     private Button graphicalSelectButton;
     private Runnable seatCheckRunnable;
+    private TextView seatAvailabilityText;
 
     public SeatReservationFragment() {}
 
@@ -90,6 +91,7 @@ public class SeatReservationFragment extends Fragment {
         updateUIState();
         startPeriodicChecks();
         startBannerAutoScroll();
+        updateSeatAvailability();
     }
 
     @Override
@@ -111,6 +113,7 @@ public class SeatReservationFragment extends Fragment {
         selectionLayout = view.findViewById(R.id.selection_layout);
         graphicalSelectButton = view.findViewById(R.id.graphical_select_button);
         announcementBanner = view.findViewById(R.id.announcement_banner);
+        seatAvailabilityText = view.findViewById(R.id.seat_availability_text);
     }
 
     private void setupBanner() {
@@ -246,6 +249,7 @@ public class SeatReservationFragment extends Fragment {
             long timestamp = System.currentTimeMillis();
             ReservationRecord newRecord = new ReservationRecord(studentId, seat.id, selectedTimeSlot.id, today, timestamp);
             db.reservationRecordDao().insert(newRecord);
+            db.seatDao().updateSeatStatus(newRecord.seatId, "occupied");
             handler.post(() -> {
                 Toast.makeText(getContext(), "预约成功!", Toast.LENGTH_SHORT).show();
                 updateUIState();
@@ -498,5 +502,32 @@ public class SeatReservationFragment extends Fragment {
                 }
             }
         }
+    }
+
+    private void updateSeatAvailability() {
+        executor.execute(() -> {
+            // 在后台线程计算余量
+            List<Seat> allSeats = db.seatDao().getAllSeats(); // 假设您有 getAllSeats() 方法
+            if (allSeats == null || allSeats.isEmpty()) {
+                handler.post(() -> seatAvailabilityText.setText("座位信息加载失败"));
+                return;
+            }
+
+            long availableCount = 0;
+            for (Seat seat : allSeats) {
+                // 根据您业务逻辑中判断座位是否可用的标准来计算
+                // 一个简单的标准是 status == "available"
+                // 一个更复杂的标准可能需要检查当前时间段是否已被预约
+                if ("available".equals(seat.status)) { // 这里使用简单标准
+                    availableCount++;
+                }
+            }
+            final String availabilityInfo = "当前总余量: " + availableCount + " / " + allSeats.size();
+
+            // 切换到主线程更新UI
+            handler.post(() -> {
+                seatAvailabilityText.setText(availabilityInfo);
+            });
+        });
     }
 }

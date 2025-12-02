@@ -5,14 +5,18 @@ import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.viewpager2.widget.ViewPager2;
+
+import com.google.android.material.tabs.TabLayout;
+import com.google.android.material.tabs.TabLayoutMediator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,24 +28,18 @@ public class BookSearchFragment extends Fragment {
     private BookAdapter bookAdapter;
     private List<Book> bookList;
     
-    // 简化版图书列表组件
-    private RecyclerView hotBooksRecycler;
-    private RecyclerView newBooksRecycler;
-    private RecyclerView recommendedBooksRecycler;
+    // ViewPager2 和 TabLayout 组件
+    private ViewPager2 viewPager;
+    private TabLayout tabLayout;
     
-    // 简化版图书适配器
-    private SimpleBookAdapter hotBooksAdapter;
-    private SimpleBookAdapter newBooksAdapter;
-    private SimpleBookAdapter recommendedBooksAdapter;
+    // 推荐板块数据
+    private List<Book> hotBooks;
+    private List<Book> newBooks;
+    private List<Book> recommendedBooks;
     
-    // 推荐板块的标题组件
-    private View hotBooksTitle;
-    private View newBooksTitle;
-    private View recommendedBooksTitle;
-    
-    private Button searchHistoryButton;
-    private Button favoriteBooksButton;
-    private Button bookCategoriesButton;
+    private ImageButton searchHistoryButton;
+    private ImageButton favoriteBooksButton;
+    private ImageButton bookCategoriesButton;
 
     public BookSearchFragment() {
         // Required empty public constructor
@@ -55,15 +53,9 @@ public class BookSearchFragment extends Fragment {
         searchInput = view.findViewById(R.id.search_input);
         booksRecyclerView = view.findViewById(R.id.books_recycler_view);
         
-        // 初始化简化版图书列表组件
-        hotBooksRecycler = view.findViewById(R.id.hot_books_recycler);
-        newBooksRecycler = view.findViewById(R.id.new_books_recycler);
-        recommendedBooksRecycler = view.findViewById(R.id.recommended_books_recycler);
-        
-        // 初始化推荐板块标题
-        hotBooksTitle = view.findViewById(R.id.hot_books_title);
-        newBooksTitle = view.findViewById(R.id.new_books_title);
-        recommendedBooksTitle = view.findViewById(R.id.recommended_books_title);
+        // 初始化 ViewPager2 和 TabLayout
+        viewPager = view.findViewById(R.id.view_pager);
+        tabLayout = view.findViewById(R.id.tab_layout);
         
         searchHistoryButton = view.findViewById(R.id.search_history_button);
         favoriteBooksButton = view.findViewById(R.id.favorite_books_button);
@@ -128,8 +120,43 @@ public class BookSearchFragment extends Fragment {
         
         // 初始化推荐图书数据
         initRecommendedBooks();
+        
+        // 设置 ViewPager2 适配器
+        setupViewPager();
 
         return view;
+    }
+    
+    private void setupViewPager() {
+        // 创建包含三个推荐板块的 Fragment 列表
+        ArrayList<Fragment> fragments = new ArrayList<>();
+        fragments.add(BookRecommendFragment.newInstance(hotBooks));
+        fragments.add(BookRecommendFragment.newInstance(newBooks));
+        fragments.add(BookRecommendFragment.newInstance(recommendedBooks));
+        
+        // 创建 ViewPager2 适配器
+        BookPagerAdapter pagerAdapter = new BookPagerAdapter(this);
+        pagerAdapter.setFragments(fragments);
+        
+        viewPager.setAdapter(pagerAdapter);
+        viewPager.setOffscreenPageLimit(3); // 预加载所有页面
+        
+        // 使用 TabLayoutMediator 将 TabLayout 和 ViewPager2 关联起来
+        new TabLayoutMediator(tabLayout, viewPager,
+                (tab, position) -> {
+                    switch (position) {
+                        case 0:
+                            tab.setText("热门图书");
+                            break;
+                        case 1:
+                            tab.setText("新书速递");
+                            break;
+                        case 2:
+                            tab.setText("馆藏推荐");
+                            break;
+                    }
+                }
+        ).attach();
     }
     
     private void showSearchHistory() {
@@ -337,7 +364,7 @@ public class BookSearchFragment extends Fragment {
     
     private void initRecommendedBooks() {
         // 创建热门图书列表（10本书）
-        List<Book> hotBooks = new ArrayList<>();
+        hotBooks = new ArrayList<>();
         hotBooks.add(new Book("Java核心技术", "Cay S. Horstmann", "机械工业出版社", "2020", 
                 "Java领域的经典权威著作，全面覆盖Java SE 9、10、11新特性，深入讲解面向对象编程、异常处理、泛型、集合框架等核心概念，是Java开发者必备的参考书。"));
         hotBooks.add(new Book("算法导论", "Thomas H. Cormen", "机械工业出版社", "2013", 
@@ -360,7 +387,7 @@ public class BookSearchFragment extends Fragment {
                 "计算机体系结构领域的权威教材，从数字逻辑电路到处理器设计，全面介绍计算机硬件系统的工作原理和设计方法。"));
 
         // 创建新书列表（10本书）
-        List<Book> newBooks = new ArrayList<>();
+        newBooks = new ArrayList<>();
         newBooks.add(new Book("深入理解Java虚拟机", "周志明", "机械工业出版社", "2019", 
                 "深入剖析JVM工作机制，涵盖类加载机制、内存模型、垃圾回收、性能调优等高级主题，是Java高级开发者的必备参考书。"));
         newBooks.add(new Book("微服务架构设计模式", "Chris Richardson", "机械工业出版社", "2019", 
@@ -383,7 +410,7 @@ public class BookSearchFragment extends Fragment {
                 "软件工程领域的标准教材，涵盖软件开发生命周期、需求工程、设计模式、测试策略等各个方面，帮助读者掌握现代软件工程的最佳实践。"));
 
         // 创建推荐图书列表（10本书）
-        List<Book> recommendedBooks = new ArrayList<>();
+        recommendedBooks = new ArrayList<>();
         recommendedBooks.add(new Book("程序员修炼之道", "Andrew Hunt", "电子工业出版社", "2011", 
                 "程序员必读的经典指南，介绍软件开发中的实用技巧和哲学思想，帮助程序员提升技能、改善工作流程，成为更专业的开发者。"));
         recommendedBooks.add(new Book("人月神话", "Frederick P. Brooks", "清华大学出版社", "2015", 
@@ -404,121 +431,21 @@ public class BookSearchFragment extends Fragment {
                 "容器技术Docker的入门与实践指南，介绍镜像制作、容器管理、网络配置、数据持久化等核心技术，帮助开发者快速掌握容器化部署。"));
         recommendedBooks.add(new Book("Linux命令行与shell脚本编程大全", "Richard Blum", "人民邮电出版社", "2016",
                 "Linux系统管理和Shell编程的权威指南，详细介绍常用命令、文本处理、进程管理、脚本编写等技能，是Linux用户的必备参考。"));
-
-        // 初始化适配器
-        hotBooksAdapter = new SimpleBookAdapter(hotBooks);
-        newBooksAdapter = new SimpleBookAdapter(newBooks);
-        recommendedBooksAdapter = new SimpleBookAdapter(recommendedBooks);
-        
-        // 设置布局管理器为垂直方向
-        hotBooksRecycler.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false));
-        newBooksRecycler.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false));
-        recommendedBooksRecycler.setLayoutManager(new LinearLayoutManager(getContext(), LinearLayoutManager.VERTICAL, false));
-        
-        // 启用嵌套滚动，以便在ScrollView中正确滚动
-        hotBooksRecycler.setNestedScrollingEnabled(true);
-        newBooksRecycler.setNestedScrollingEnabled(true);
-        recommendedBooksRecycler.setNestedScrollingEnabled(true);
-        
-        // 添加滚动监听器来更新活跃项
-        hotBooksRecycler.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView, dx, dy);
-                updateActiveItem(recyclerView, hotBooksAdapter);
-            }
-        });
-        
-        newBooksRecycler.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView, dx, dy);
-                updateActiveItem(recyclerView, newBooksAdapter);
-            }
-        });
-        
-        recommendedBooksRecycler.addOnScrollListener(new RecyclerView.OnScrollListener() {
-            @Override
-            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                super.onScrolled(recyclerView, dx, dy);
-                updateActiveItem(recyclerView, recommendedBooksAdapter);
-            }
-        });
-        
-        // 设置适配器
-        hotBooksRecycler.setAdapter(hotBooksAdapter);
-        newBooksRecycler.setAdapter(newBooksAdapter);
-        recommendedBooksRecycler.setAdapter(recommendedBooksAdapter);
-        
-        // 设置书籍点击监听器
-        hotBooksAdapter.setOnBookClickListener(book -> {
-            BookDetailFragment detailFragment = BookDetailFragment.newInstance(book);
-            if (getActivity() != null) {
-                getActivity().getSupportFragmentManager()
-                        .beginTransaction()
-                        .replace(R.id.fragment_container, detailFragment)
-                        .addToBackStack(null)
-                        .commit();
-            }
-        });
-        
-        newBooksAdapter.setOnBookClickListener(book -> {
-            BookDetailFragment detailFragment = BookDetailFragment.newInstance(book);
-            if (getActivity() != null) {
-                getActivity().getSupportFragmentManager()
-                        .beginTransaction()
-                        .replace(R.id.fragment_container, detailFragment)
-                        .addToBackStack(null)
-                        .commit();
-            }
-        });
-        
-        recommendedBooksAdapter.setOnBookClickListener(book -> {
-            BookDetailFragment detailFragment = BookDetailFragment.newInstance(book);
-            if (getActivity() != null) {
-                getActivity().getSupportFragmentManager()
-                        .beginTransaction()
-                        .replace(R.id.fragment_container, detailFragment)
-                        .addToBackStack(null)
-                        .commit();
-            }
-        });
-    }
-    
-    /**
-     * 根据滚动位置更新活跃项
-     */
-    private void updateActiveItem(RecyclerView recyclerView, SimpleBookAdapter adapter) {
-        LinearLayoutManager layoutManager = (LinearLayoutManager) recyclerView.getLayoutManager();
-        if (layoutManager != null) {
-            int firstVisiblePosition = layoutManager.findFirstVisibleItemPosition();
-            if (firstVisiblePosition != RecyclerView.NO_POSITION) {
-                adapter.setActivePosition(firstVisiblePosition);
-            }
-        }
     }
     
     /**
      * 隐藏推荐板块（热门图书、新书速递、馆藏推荐）
      */
     private void hideRecommendSections() {
-        hotBooksTitle.setVisibility(View.GONE);
-        hotBooksRecycler.setVisibility(View.GONE);
-        newBooksTitle.setVisibility(View.GONE);
-        newBooksRecycler.setVisibility(View.GONE);
-        recommendedBooksTitle.setVisibility(View.GONE);
-        recommendedBooksRecycler.setVisibility(View.GONE);
+        tabLayout.setVisibility(View.GONE);
+        viewPager.setVisibility(View.GONE);
     }
     
     /**
      * 显示推荐板块（热门图书、新书速递、馆藏推荐）
      */
     private void showRecommendSections() {
-        hotBooksTitle.setVisibility(View.VISIBLE);
-        hotBooksRecycler.setVisibility(View.VISIBLE);
-        newBooksTitle.setVisibility(View.VISIBLE);
-        newBooksRecycler.setVisibility(View.VISIBLE);
-        recommendedBooksTitle.setVisibility(View.VISIBLE);
-        recommendedBooksRecycler.setVisibility(View.VISIBLE);
+        tabLayout.setVisibility(View.VISIBLE);
+        viewPager.setVisibility(View.VISIBLE);
     }
 }

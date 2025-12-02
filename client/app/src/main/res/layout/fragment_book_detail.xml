@@ -5,6 +5,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:orientation="vertical"
     android:padding="16dp"
+    android:layout_gravity="center"
     android:background="@color/white">
 
     <TextView
@@ -14,49 +15,56 @@
         android:textSize="24sp"
         android:textStyle="bold"
         android:gravity="center"
+        android:layout_marginTop="24dp"
         android:layout_marginBottom="24dp" />
 
-    <TextView
-        android:id="@+id/detail_author"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="18sp"
-        android:layout_marginBottom="16dp" />
+        android:orientation="vertical"
+        android:padding="16dp">
+        
+        <TextView
+            android:id="@+id/detail_author"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:layout_marginBottom="16dp" />
 
-    <TextView
-        android:id="@+id/detail_publisher"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="18sp"
-        android:layout_marginBottom="16dp" />
+        <TextView
+            android:id="@+id/detail_publisher"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:layout_marginBottom="16dp" />
 
-    <TextView
-        android:id="@+id/detail_year"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="18sp"
-        android:layout_marginBottom="16dp" />
+        <TextView
+            android:id="@+id/detail_year"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="18sp"
+            android:layout_marginBottom="16dp" />
 
-    <!-- 添加图书简介部分 -->
-    <TextView
-        android:id="@+id/detail_description_label"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="图书简介:"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:layout_marginTop="16dp"
-        android:layout_marginBottom="8dp" />
+        <!-- 添加图书简介部分 -->
+        <TextView
+            android:id="@+id/detail_description_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="图书简介:"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp" />
 
-    <TextView
-        android:id="@+id/detail_description"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:lineSpacingExtra="4dp"
-        android:layout_marginBottom="24dp" />
+        <TextView
+            android:id="@+id/detail_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:lineSpacingExtra="4dp"
+            android:layout_marginBottom="24dp" />
+    </LinearLayout>
 
-    <!-- 收藏按钮 -->
     <Button
         android:id="@+id/favorite_button"
         android:layout_width="wrap_content"
@@ -64,13 +72,6 @@
         android:text="收藏图书"
         android:layout_gravity="center"
         android:layout_marginBottom="16dp" />
-
-    <Button
-        android:id="@+id/back_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/back_button_text"
-        android:layout_gravity="center" />
 
     <Button
         android:id="@+id/generate_review_button"

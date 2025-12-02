@@ -2,13 +2,16 @@
 package com.example.client;
 
 import android.app.ProgressDialog;
+import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Bundle;
 import android.os.Looper;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -60,7 +63,6 @@ public class BookDetailFragment extends Fragment {
         TextView yearText = view.findViewById(R.id.detail_year);
         TextView descriptionText = view.findViewById(R.id.detail_description); // 新增
         favoriteButton = view.findViewById(R.id.favorite_button);
-        Button backButton = view.findViewById(R.id.back_button);
 
         generateReviewButton = view.findViewById(R.id.generate_review_button);
         generateReviewButton.setOnClickListener(v -> generateAndShowReview());
@@ -86,12 +88,6 @@ public class BookDetailFragment extends Fragment {
                 }
             });
         }
-
-        backButton.setOnClickListener(v -> {
-            if (getActivity() != null) {
-                getActivity().getSupportFragmentManager().popBackStack();
-            }
-        });
 
         return view;
     }
@@ -147,12 +143,32 @@ public class BookDetailFragment extends Fragment {
                     progressDialog.dismiss(); // 关闭加载对话框
 
                     if (review != null && !review.isEmpty()) {
-                        // 4. 使用弹窗显示结果
-                        new AlertDialog.Builder(requireContext())
-                                .setTitle("AI 生成的书评")
-                                .setMessage(review)
-                                .setPositiveButton("确定", null)
-                                .show();
+                        // 4. 创建自定义布局的AlertDialog
+                        AlertDialog.Builder builder = new AlertDialog.Builder(requireContext());
+                        
+                        // 创建ScrollView和TextView来支持滚动
+                        ScrollView scrollView = new ScrollView(requireContext());
+                        TextView messageView = new TextView(requireContext());
+                        
+                        // 设置文本内容和样式
+                        messageView.setText(review);
+                        messageView.setTextSize(16); // 设置字体大小
+                        messageView.setPadding(100, 30, 100, 30); // 增加页边距 (左、上、右、下)
+                        
+                        scrollView.addView(messageView);
+                        
+                        // 创建自定义标题视图使其居中
+                        TextView titleView = new TextView(requireContext());
+                        titleView.setText("AI 生成的书评");
+                        titleView.setTextSize(20);
+                        titleView.setTypeface(null, Typeface.BOLD);
+                        titleView.setGravity(Gravity.CENTER);
+                        titleView.setPadding(0, 50, 0, 30);
+                        
+                        builder.setCustomTitle(titleView);
+                        builder.setView(scrollView);
+                        builder.setPositiveButton("确定", null);
+                        builder.show();
                     } else {
                         // 处理生成失败或返回空内容的情况
                         Toast.makeText(getContext(), "生成书评失败，请稍后重试", Toast.LENGTH_LONG).show();

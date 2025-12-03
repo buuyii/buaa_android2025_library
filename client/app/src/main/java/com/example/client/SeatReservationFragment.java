@@ -8,6 +8,7 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.Spinner;
@@ -23,6 +24,7 @@ import androidx.viewpager2.widget.ViewPager2;
 
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -53,8 +55,10 @@ public class SeatReservationFragment extends Fragment {
     private ActivityResultLauncher<Intent> graphicalSeatLauncher;
     private Button graphicalSelectButton;
     private Runnable seatCheckRunnable;
-    private TextView seatAvailabilityInline; // 新增内联余量显示控件
-    private TextView seatAvailabilityBelow;  // 新增下方余量显示控件
+    private TextView seatAvailabilityInline; 
+    private TextView seatAvailabilityBelow;  
+
+    private int pendingSeatSelection = -1; // To hold the seat number from graphical selection
 
     public SeatReservationFragment() {}
 
@@ -65,6 +69,7 @@ public class SeatReservationFragment extends Fragment {
         initializeViews(view);
         setupBanner();
         setupListeners();
+        populateFloorSpinner();
         return view;
     }
 
@@ -78,8 +83,17 @@ public class SeatReservationFragment extends Fragment {
                     if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
                         Intent data = result.getData();
                         int seatNumber = data.getIntExtra("SELECTED_SEAT_NUMBER", -1);
-                        if (seatNumber != -1) {
-                            updateSpinnerSelection(seatSpinner, seatNumber);
+                        int floorNumber = data.getIntExtra("SELECTED_FLOOR_NUMBER", -1);
+
+                        if (seatNumber != -1 && floorNumber != -1) {
+                            int floorPosition = floorNumber - 1;
+
+                            if (floorSpinner.getSelectedItemPosition() == floorPosition) {
+                                updateSeatSpinner(floorNumber, () -> updateSpinnerSelection(seatSpinner, seatNumber));
+                            } else {
+                                this.pendingSeatSelection = seatNumber;
+                                floorSpinner.setSelection(floorPosition);
+                            }
                         }
                     }
                 });
@@ -88,7 +102,7 @@ public class SeatReservationFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        populateSpinners();
+        updateAvailableTimeSlots();
         updateUIState();
         startPeriodicChecks();
         startBannerAutoScroll();
@@ -114,23 +128,14 @@ public class SeatReservationFragment extends Fragment {
         selectionLayout = view.findViewById(R.id.selection_layout);
         graphicalSelectButton = view.findViewById(R.id.graphical_select_button);
         announcementBanner = view.findViewById(R.id.announcement_banner);
-        seatAvailabilityInline = view.findViewById(R.id.seat_availability_inline); // 初始化内联余量显示控件
-        seatAvailabilityBelow = view.findViewById(R.id.seat_availability_below);   // 初始化下方余量显示控件
+        seatAvailabilityInline = view.findViewById(R.id.seat_availability_inline);
+        seatAvailabilityBelow = view.findViewById(R.id.seat_availability_below);
     }
 
     private void setupBanner() {
-        // Using banner images for the announcement banner
-        int[] bannerImages = {
-                R.drawable.banner1,
-                R.drawable.banner2,
-                R.drawable.banner3,
-                R.drawable.banner4
-        };
-
+        int[] bannerImages = { R.drawable.banner1, R.drawable.banner2, R.drawable.banner3, R.drawable.banner4 };
         bannerAdapter = new BannerAdapter(bannerImages);
         announcementBanner.setAdapter(bannerAdapter);
-        
-        // Set up auto-scrolling
         bannerHandler = new Handler(Looper.getMainLooper());
     }
 
@@ -140,7 +145,6 @@ public class SeatReservationFragment extends Fragment {
                 @Override
                 public void run() {
                     if (bannerAdapter.getItemCount() == 0) return;
-                    
                     currentPage = (currentPage + 1) % bannerAdapter.getItemCount();
                     announcementBanner.setCurrentItem(currentPage, true);
                     bannerHandler.postDelayed(this, BANNER_SWITCH_INTERVAL_MS);
@@ -162,19 +166,38 @@ public class SeatReservationFragment extends Fragment {
         checkinButton.setOnClickListener(v -> handleCheckIn());
         checkoutButton.setOnClickListener(v -> handleCheckOut());
         graphicalSelectButton.setOnClickListener(v -> navigateToGraphicalActivity());
+
+        floorSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                int selectedFloor = position + 1;
+                if (pendingSeatSelection != -1) {
+                    final int seatToSelect = pendingSeatSelection;
+                    pendingSeatSelection = -1; // Reset after capturing
+                    updateSeatSpinner(selectedFloor, () -> updateSpinnerSelection(seatSpinner, seatToSelect));
+                } else {
+                    updateSeatSpinner(selectedFloor, null);
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                if (getContext() != null) {
+                    seatSpinner.setAdapter(new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, new ArrayList<Integer>()));
+                }
+            }
+        });
     }
-
-    private void populateSpinners() {
+    
+    private void populateFloorSpinner() {
         if (getContext() == null) return;
-
         ArrayAdapter<String> floorAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, getFloors());
         floorAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         floorSpinner.setAdapter(floorAdapter);
-
-        ArrayAdapter<Integer> seatAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, getSeats());
-        seatAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        seatSpinner.setAdapter(seatAdapter);
-
+    }
+    
+    private void updateAvailableTimeSlots() {
+        if (getContext() == null) return;
         executor.execute(() -> {
             List<TimeSlot> allTimeSlots = db.timeSlotDao().getAllTimeSlots();
             List<TimeSlot> availableTimeSlots = new ArrayList<>();
@@ -185,12 +208,7 @@ public class SeatReservationFragment extends Fragment {
                 Date startTime = getDateForTimeString(ts.startTime, today);
                 Date endTime = getDateForTimeString(ts.endTime, today);
                 
-                // A time slot is available if:
-                // 1. It hasn't ended yet (current time is before end time)
-                // 2. Either it hasn't started yet (current time is before start time) OR
-                //    it's currently ongoing (current time is after or equal to start time)
-                if (endTime != null && now.before(endTime) && 
-                   (startTime != null && (now.before(startTime) || !startTime.after(now)))) {
+                if (endTime != null && now.before(endTime) && (startTime != null && (now.before(startTime) || !startTime.after(now)))) {
                     availableTimeSlots.add(ts);
                 }
             }
@@ -211,6 +229,28 @@ public class SeatReservationFragment extends Fragment {
                         timeslotSpinner.setAdapter(timeSlotAdapter);
                         timeslotSpinner.setEnabled(true);
                         reserveButton.setEnabled(true);
+                    }
+                }
+            });
+        });
+    }
+
+    private void updateSeatSpinner(int floorNumber, @Nullable Runnable onFinished) {
+        executor.execute(() -> {
+            List<Seat> seatsForFloor = db.seatDao().getSeatsByFloor(floorNumber);
+            List<Integer> seatNumbers = new ArrayList<>();
+            for (Seat seat : seatsForFloor) {
+                seatNumbers.add(seat.seatNumber);
+            }
+            Collections.sort(seatNumbers);
+
+            handler.post(() -> {
+                if (getContext() != null) {
+                    ArrayAdapter<Integer> seatAdapter = new ArrayAdapter<>(getContext(), android.R.layout.simple_spinner_item, seatNumbers);
+                    seatAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                    seatSpinner.setAdapter(seatAdapter);
+                    if (onFinished != null) {
+                        onFinished.run();
                     }
                 }
             });
@@ -255,6 +295,7 @@ public class SeatReservationFragment extends Fragment {
             handler.post(() -> {
                 Toast.makeText(getContext(), "预约成功!", Toast.LENGTH_SHORT).show();
                 updateUIState();
+                updateSeatAvailability();
             });
         });
     }
@@ -268,15 +309,16 @@ public class SeatReservationFragment extends Fragment {
     }
 
     private void stopPeriodicChecks() {
-        handler.removeCallbacks(seatCheckRunnable);
+        if (seatCheckRunnable != null) {
+            handler.removeCallbacks(seatCheckRunnable);
+        }
     }
 
     private void runSeatReleaseChecks() {
         Date now = new Date();
         Date today = getStartOfDay(now);
-        boolean shouldUpdateUi = false;
+        final boolean[] availabilityHasChanged = {false};
 
-        // 1. Check for no-shows
         List<ReservationRecord> reservations = db.reservationRecordDao().getReservationsByDate(today);
         for (ReservationRecord r : reservations) {
             StudyRecord sr = db.studyRecordDao().findActiveStudyRecordByStudentAndSeat(r.studentId, r.seatId);
@@ -288,17 +330,16 @@ public class SeatReservationFragment extends Fragment {
                 long reservationTime = r.reservationTimestamp;
 
                 if (slotStartTime != null) {
-                    long checkInDeadline;
-                    if (reservationTime < slotStartTime.getTime()) {
-                        checkInDeadline = slotStartTime.getTime() + NO_SHOW_GRACE_PERIOD_MS;
-                    } else {
-                        checkInDeadline = reservationTime + NO_SHOW_GRACE_PERIOD_MS;
-                    }
+                    long checkInDeadline = (reservationTime < slotStartTime.getTime()) 
+                        ? slotStartTime.getTime() + NO_SHOW_GRACE_PERIOD_MS 
+                        : reservationTime + NO_SHOW_GRACE_PERIOD_MS;
 
                     if (now.getTime() > checkInDeadline) {
                         db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
+                        db.seatDao().updateSeatStatus(r.seatId, "available");
+                        availabilityHasChanged[0] = true;
+
                         if (r.studentId == studentId) {
-                            shouldUpdateUi = true;
                             handler.post(() -> {
                                 if (isResumed() && getContext() != null) {
                                     new AlertDialog.Builder(getContext())
@@ -315,7 +356,6 @@ public class SeatReservationFragment extends Fragment {
             }
         }
 
-        // 2. Check for overdue checkouts
         List<StudyRecord> activeStudies = db.studyRecordDao().getAllActiveStudyRecords();
         for (StudyRecord sr : activeStudies) {
             ReservationRecord r = db.reservationRecordDao().findReservationByUserAndDate(sr.studentId, today);
@@ -328,10 +368,10 @@ public class SeatReservationFragment extends Fragment {
                     sr.endTime = endTime;
                     db.studyRecordDao().update(sr);
                     db.seatDao().updateSeatStatus(sr.seatId, "available");
+                    availabilityHasChanged[0] = true;
                     db.reservationRecordDao().deleteReservation(r.studentId, r.seatId, r.timeSlotId, r.reservationDate);
 
                     if (sr.studentId == studentId) {
-                        shouldUpdateUi = true;
                         handler.post(() -> {
                             if (isResumed() && getContext() != null) {
                                 new AlertDialog.Builder(getContext())
@@ -346,9 +386,9 @@ public class SeatReservationFragment extends Fragment {
                 }
             }
         }
-
-        if (!shouldUpdateUi) {
-           // handler.post(this::updateUIState); // No longer needed as dialogs handle their own updates
+        
+        if(availabilityHasChanged[0]){
+            handler.post(this::updateSeatAvailability);
         }
     }
 
@@ -358,9 +398,11 @@ public class SeatReservationFragment extends Fragment {
             ReservationRecord reservation = db.reservationRecordDao().findReservationByUserAndDate(studentId, today);
             if (reservation != null) {
                 db.reservationRecordDao().deleteReservation(reservation.studentId, reservation.seatId, reservation.timeSlotId, reservation.reservationDate);
+                db.seatDao().updateSeatStatus(reservation.seatId, "available");
                 handler.post(() -> {
                     Toast.makeText(getContext(), "预约已取消", Toast.LENGTH_SHORT).show();
                     updateUIState();
+                    updateSeatAvailability();
                 });
             }
         });
@@ -377,6 +419,7 @@ public class SeatReservationFragment extends Fragment {
                 handler.post(() -> {
                     Toast.makeText(getContext(), "签到成功!", Toast.LENGTH_SHORT).show();
                     updateUIState();
+                    updateSeatAvailability();
                 });
             }
         });
@@ -399,6 +442,7 @@ public class SeatReservationFragment extends Fragment {
                 handler.post(() -> {
                     Toast.makeText(getContext(), "签退成功!", Toast.LENGTH_SHORT).show();
                     updateUIState();
+                    updateSeatAvailability();
                 });
             }
         });
@@ -435,7 +479,6 @@ public class SeatReservationFragment extends Fragment {
                     checkinButton.setVisibility(View.GONE);
                     checkoutButton.setVisibility(View.VISIBLE);
                     seatStatusText.setText("状态: 已签到，正在学习");
-                    // 预约成功后隐藏内联余量，显示下方余量
                     seatAvailabilityInline.setVisibility(View.GONE);
                     seatAvailabilityBelow.setVisibility(View.VISIBLE);
                 } else if (reservation != null) {
@@ -446,7 +489,6 @@ public class SeatReservationFragment extends Fragment {
                     checkoutButton.setVisibility(View.GONE);
                     seatStatusText.setText("状态: 已预约，等待签到");
                     checkinButton.setEnabled(true);
-                    // 预约成功后隐藏内联余量，显示下方余量
                     seatAvailabilityInline.setVisibility(View.GONE);
                     seatAvailabilityBelow.setVisibility(View.VISIBLE);
                 } else {
@@ -456,7 +498,6 @@ public class SeatReservationFragment extends Fragment {
                     checkinButton.setVisibility(View.GONE);
                     checkoutButton.setVisibility(View.GONE);
                     seatStatusText.setText("状态: 未预约");
-                    // 未预约时显示内联余量，隐藏下方余量
                     seatAvailabilityInline.setVisibility(View.VISIBLE);
                     seatAvailabilityBelow.setVisibility(View.GONE);
                 }
@@ -473,12 +514,6 @@ public class SeatReservationFragment extends Fragment {
         floors.add("五楼（开放至22:00）");
         floors.add("六楼（开放至22:00）");
         return floors;
-    }
-
-    private List<Integer> getSeats() {
-        List<Integer> seats = new ArrayList<>();
-        for (int i = 1; i <= 20; i++) seats.add(i);
-        return seats;
     }
 
     private Date getStartOfDay(Date date) {
@@ -504,7 +539,7 @@ public class SeatReservationFragment extends Fragment {
     }
 
     private void updateSpinnerSelection(Spinner spinner, int value) {
-        ArrayAdapter<Integer> adapter = (ArrayAdapter<Integer>) spinner.getAdapter();
+        ArrayAdapter adapter = (ArrayAdapter) spinner.getAdapter();
         if (adapter != null) {
             for (int i = 0; i < adapter.getCount(); i++) {
                 if (adapter.getItem(i).equals(value)) {
@@ -517,8 +552,7 @@ public class SeatReservationFragment extends Fragment {
 
     private void updateSeatAvailability() {
         executor.execute(() -> {
-            // 在后台线程计算余量
-            List<Seat> allSeats = db.seatDao().getAllSeats(); // 假设您有 getAllSeats() 方法
+            List<Seat> allSeats = db.seatDao().getAllSeats(); 
             if (allSeats == null || allSeats.isEmpty()) {
                 handler.post(() -> {
                     seatAvailabilityInline.setText("余量: 加载失败");
@@ -529,17 +563,13 @@ public class SeatReservationFragment extends Fragment {
 
             long availableCount = 0;
             for (Seat seat : allSeats) {
-                // 根据您业务逻辑中判断座位是否可用的标准来计算
-                // 一个简单的标准是 status == "available"
-                // 一个更复杂的标准可能需要检查当前时间段是否已被预约
-                if ("available".equals(seat.status)) { // 这里使用简单标准
+                if ("available".equals(seat.status)) { 
                     availableCount++;
                 }
             }
             final String availabilityInfoInline = "座位余量: " + availableCount + "/" + allSeats.size();
             final String availabilityInfoBelow = "座位余量：" + availableCount + " / " + allSeats.size();
 
-            // 切换到主线程更新UI
             handler.post(() -> {
                 seatAvailabilityInline.setText(availabilityInfoInline);
                 seatAvailabilityBelow.setText(availabilityInfoBelow);

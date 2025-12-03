@@ -18,7 +18,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Background Image and Seats Container -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/seat_map_container"
         android:layout_width="0dp"
@@ -34,37 +33,13 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="fitCenter"
-            android:src="@drawable/library_floor_plan"
+            android:src="@drawable/library_floor_plan"            
             tools:ignore="ContentDescription" />
 
-        <!-- SEAT LAYOUT AREA -->
-        <!-- Buttons are now direct children of ConstraintLayout. -->
-        <!-- You can drag them in the design editor, and their position is defined by bias constraints. -->
-
-        <Button
-            android:id="@+id/seat_1"
-            style="@style/SeatButtonStyle"
-            android:text="1"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintHorizontal_bias="0.222"
-            app:layout_constraintVertical_bias="0.404" />
-
-        <Button
-            android:id="@+id/seat_2"
-            style="@style/SeatButtonStyle"
-            android:layout_width="33dp"
-            android:layout_height="34dp"
-            android:text="2"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.417"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.422" />
-
+        <com.example.client.SeatOverlayView
+            android:id="@+id/seat_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+            
     </androidx.constraintlayout.widget.ConstraintLayout>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

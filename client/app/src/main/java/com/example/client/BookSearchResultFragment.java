@@ -193,11 +193,11 @@ public class BookSearchResultFragment extends Fragment {
                 "Node.js入门与实践的经典教材，介绍服务器端JavaScript开发的基础知识和实际应用，帮助开发者快速掌握全栈开发技能。"));
         allBooks.add(new Book("React学习手册", "Alex Banks", "人民邮电出版社", "2017",
                 "React框架的学习指南，详细介绍组件化开发、状态管理、路由配置等核心技术，通过实例帮助读者掌握现代前端开发。"));
-        allBooks.add(new Book("Vue.js实战", "梁灏", "电子工业出版社", "2019",
+        allBooks.add(new Book("Vue.js实战", "梁灏", "清华大学出版社", "2017",
                 "Vue.js框架的实践指南，从基础概念到项目实战，全面介绍Vue的核心特性和生态系统，适合前端开发者学习和应用。"));
-        allBooks.add(new Book("Angular权威教程", "Rangle.io", "人民邮电出版社", "2019",
+        allBooks.add(new Book("Angular权威教程", "Lerner, Ari", "人民邮电出版社", "2017",
                 "Angular框架的权威教程，系统介绍TypeScript、组件、依赖注入、路由等Angular核心技术，帮助开发者构建复杂的单页应用。"));
-        allBooks.add(new Book("Webpack实战", "居玉浩", "电子工业出版社", "2018",
+        allBooks.add(new Book("Webpack实战", "居玉皓", "机械工业出版社", "2022",
                 "前端构建工具Webpack的实战指南，详细介绍模块打包、代码分割、性能优化等技术，帮助开发者提升前端工程化水平。"));
 
         allBooks.add(new Book("Docker技术入门与实战", "杨保华", "机械工业出版社", "2018",

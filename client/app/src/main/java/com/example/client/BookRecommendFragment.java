@@ -7,10 +7,9 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import java.util.ArrayList;
 import java.util.List;
 
 public class BookRecommendFragment extends Fragment {
@@ -44,8 +43,8 @@ public class BookRecommendFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_book_recommend, container, false);
         
         RecyclerView recyclerView = view.findViewById(R.id.recommend_books_recycler);
-        SimpleBookAdapter adapter = new SimpleBookAdapter(bookList);
-        recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
+        BookCoverAdapter adapter = new BookCoverAdapter(bookList);
+        recyclerView.setLayoutManager(new GridLayoutManager(getContext(), 3)); // 每行显示3本书
         recyclerView.setAdapter(adapter);
         
         // 设置书籍点击监听器

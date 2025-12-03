@@ -13,6 +13,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.io.File;
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.RequestOptions;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import android.util.Log; // 解决 Log 类找不到的问题
+
 public class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder> {
 
     private List<Book> bookList;
@@ -45,9 +51,11 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder
         holder.authorText.setText("作者: " + book.getAuthor());
         holder.publisherText.setText("出版社: " + book.getPublisher());
         holder.yearText.setText("出版年份: " + book.getYear());
-        
+
         // 设置默认封面图片
-        holder.coverImage.setImageResource(R.drawable.lib_logo);
+        //holder.coverImage.setImageResource(R.drawable.lib_logo);
+        // 封面图片加载（核心修改）
+        loadBookCover(holder.coverImage, book.getCoverResId());
 
         // 设置整个项目的点击监听器
         holder.itemView.setOnClickListener(v -> {
@@ -55,6 +63,23 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.BookViewHolder
                 listener.onBookClick(book);
             }
         });
+    }
+
+    private void loadBookCover(ImageView imageView, int coverResId) { // 参数改为资源 ID
+        // 直接通过资源 ID 加载 drawable 图片
+        //imageView.setImageResource(coverResId);
+        Log.d("COVER_DEBUG", "加载封面资源ID: " + coverResId); // 先打印实际值
+        if (coverResId != -1) {
+            imageView.setImageResource(coverResId);
+            Log.d("COVER_DEBUG", "尝试加载封面:0 "); // 添加这行
+        } else {
+            // 无封面时的降级逻辑：比如显示占位图 / 隐藏 ImageView
+            imageView.setImageResource(R.drawable.lib_logo);
+            Log.d("COVER_DEBUG", "尝试加载默认封面:1 ");
+            // 或 imageView.setVisibility(View.GONE);
+        }
+        // 若需用 Glide 加载（如添加过渡动画），也可：
+        // Glide.with(imageView.getContext()).load(coverResId).into(imageView);
     }
 
     @Override

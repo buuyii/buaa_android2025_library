@@ -129,7 +129,7 @@ public class BookSearchResultFragment extends Fragment {
                 "操作系统领域的经典教材，全面介绍进程管理、内存管理、文件系统、分布式系统等核心概念，帮助读者深入理解操作系统的工作原理。"));
         allBooks.add(new Book("数据库系统概念", "Abraham Silberschatz", "机械工业出版社", "2019",
                 "数据库领域的权威教材，系统阐述关系数据库理论、SQL语言、事务处理、并发控制等核心知识，理论与实践并重，适合数据库学习者和从业者。"));
-        allBooks.add(new Book("编译原理", "Alfred V. Aho", "人民邮电出版社", "2013",
+        allBooks.add(new Book("编译原理", "Alfred V. Aho", "机械工业出版社", "2013",
                 "编译器设计领域的经典教材，详细介绍词法分析、语法分析、语义分析、代码生成等编译过程，是理解和实现编程语言处理工具的重要参考资料。"));
         allBooks.add(new Book("计算机组成与设计", "David A. Patterson", "机械工业出版社", "2014",
                 "计算机体系结构领域的权威教材，从数字逻辑电路到处理器设计，全面介绍计算机硬件系统的工作原理和设计方法。"));
@@ -151,20 +151,20 @@ public class BookSearchResultFragment extends Fragment {
                 "程序员必读的经典指南，介绍软件开发中的实用技巧和哲学思想，帮助程序员提升技能、改善工作流程，成为更专业的开发者。"));
         allBooks.add(new Book("人月神话", "Frederick P. Brooks", "清华大学出版社", "2015",
                 "软件项目管理的经典著作，探讨软件开发的本质复杂性和项目管理的挑战，提出的\"人月\"概念对软件工程影响深远。"));
-        allBooks.add(new Book("计算机程序的构造和解释", "Harold Abelson", "机械工业出版社", "2015",
+        allBooks.add(new Book("计算机程序的构造和解释", "Harold Abelson", "机械工业出版社", "2019",
                 "MIT经典教材，使用Scheme语言讲授计算机科学核心概念，强调程序设计的思想和方法，培养计算思维能力。"));
         allBooks.add(new Book("黑客与画家", "Paul Graham", "人民邮电出版社", "2013",
                 "著名程序员Paul Graham的随笔集，探讨编程语言设计、创业经验、技术趋势等话题，充满洞察力和启发性。"));
 
         allBooks.add(new Book("数学之美", "吴军", "人民邮电出版社", "2014",
                 "揭示数学在信息技术中应用的美妙之处，涵盖自然语言处理、统计语言模型、信息检索等领域的数学原理，展现数学的力量。"));
-        allBooks.add(new Book("浪潮之巅", "吴军", "电子工业出版社", "2019",
+        allBooks.add(new Book("浪潮之巅", "吴军", "人民邮电出版社", "2019",
                 "全景式介绍IT产业发展的历史和规律，分析各大科技公司的兴衰成败，帮助读者理解技术变革背后的商业逻辑。"));
         allBooks.add(new Book("文明之光", "吴军", "人民邮电出版社", "2014",
                 "从科技视角审视人类文明发展，探讨科学技术对社会进步的巨大推动作用，展现科技与人文的和谐统一。"));
-        allBooks.add(new Book("硅谷之谜", "吴军", "人民邮电出版社", "2015",
+        allBooks.add(new Book("硅谷之谜", "吴军", "人民邮电出版社", "2016",
                 "深入解析硅谷成功的奥秘，分析创新文化、风险投资、人才聚集等因素，为科技创新提供启示。"));
-        allBooks.add(new Book("大学之路", "吴军", "人民邮电出版社", "2016",
+        allBooks.add(new Book("大学之路", "吴军", "人民邮电出版社", "2015",
                 "探讨世界一流大学的教育理念和人才培养模式，为学生和家长提供教育选择的参考和思考。"));
 
         allBooks.add(new Book("C++ Primer", "Stanley B. Lippman", "中国电力出版社", "2013",
@@ -173,18 +173,18 @@ public class BookSearchResultFragment extends Fragment {
                 "Java编程的最佳实践指南，提供78条具体的建议帮助开发者写出更加健壮、高效、可维护的Java代码。"));
         allBooks.add(new Book("Java并发编程实战", "Brian Goetz", "机械工业出版社", "2012",
                 "深入讲解Java并发编程的核心概念和技术，涵盖线程安全、同步机制、线程池等主题，是Java并发开发的权威指南。"));
-        allBooks.add(new Book("Spring实战", "Craig Walls", "人民邮电出版社", "2019",
+        allBooks.add(new Book("Spring实战", "Craig Walls", "人民邮电出版社", "2020",
                 "Spring框架的实用指南，详细介绍Spring Core、Spring MVC、Spring Boot等技术，帮助开发者快速掌握企业级Java开发。"));
         allBooks.add(new Book("深入理解Java虚拟机", "周志明", "机械工业出版社", "2019",
                 "深入剖析JVM工作机制，涵盖类加载机制、内存模型、垃圾回收、性能调优等高级主题，是Java高级开发者的必备参考书。"));
 
         allBooks.add(new Book("Head First Design Patterns", "Eric Freeman", "中国电力出版社", "2007",
                 "以独特的方式介绍设计模式，通过大量图表、练习和幽默元素帮助读者轻松掌握23种经典设计模式及其应用场景。"));
-        allBooks.add(new Book("JavaScript高级程序设计", "Nicholas C. Zakas", "人民邮电出版社", "2019",
+        allBooks.add(new Book("JavaScript高级程序设计", "Nicholas C. Zakas", "人民邮电出版社", "2012",
                 "JavaScript学习的权威教材，全面介绍JavaScript语言核心、DOM编程、事件处理、Ajax等Web开发技术，适合前端开发者深入学习。"));
         allBooks.add(new Book("你不知道的JavaScript", "Kyle Simpson", "人民邮电出版社", "2015",
                 "深入挖掘JavaScript语言的核心机制和工作原理，帮助开发者真正理解JavaScript的作用域、闭包、this绑定等重要概念。"));
-        allBooks.add(new Book("CSS权威指南", "Eric A. Meyer", "中国电力出版社", "2013",
+        allBooks.add(new Book("CSS权威指南", "Eric A. Meyer", "中国电力出版社", "2019",
                 "CSS领域的权威参考书，详细介绍CSS选择器、盒模型、定位、浮动等核心概念，帮助开发者掌握网页样式设计的精髓。"));
         allBooks.add(new Book("HTML5权威指南", "Adam Freeman", "人民邮电出版社", "2014",
                 "全面介绍HTML5新特性的实用指南，涵盖语义化标签、表单增强、多媒体支持、本地存储等技术，是Web开发者的重要参考。"));

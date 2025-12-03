@@ -52,18 +52,24 @@ public class GraphicalSeatSelectionActivity extends AppCompatActivity {
                 seatOverlay.bindPhotoView(photoView);
                 seatOverlay.setSeats(seats);
 
-                // Set the click listener for normal mode (selecting a seat)
                 seatOverlay.setOnSeatClickListener(seat -> {
                     if (!seat.isAvailable()) {
                         Toast.makeText(this, "该座位不可用", Toast.LENGTH_SHORT).show();
                         return;
                     }
-                    Intent resultIntent = new Intent();
-                    resultIntent.putExtra("SELECTED_SEAT_NUMBER", seat.seatNumber);
-                    resultIntent.putExtra("SELECTED_FLOOR_NUMBER", selectedFloor); // Add floor number
-                    setResult(RESULT_OK, resultIntent);
+                    
+                    seatOverlay.setSelectedSeat(seat);
+
+                    // Use a handler to delay finishing the activity so the user can see the selection
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        Intent resultIntent = new Intent();
+                        resultIntent.putExtra("SELECTED_SEAT_NUMBER", seat.seatNumber);
+                        resultIntent.putExtra("SELECTED_FLOOR_NUMBER", selectedFloor);
+                        setResult(RESULT_OK, resultIntent);
+                        finish();
+                    }, 300); // 300ms delay
+
                     Toast.makeText(this, "已选择 " + seat.seatNumber + " 号座位", Toast.LENGTH_SHORT).show();
-                    finish();
                 });
             });
         });

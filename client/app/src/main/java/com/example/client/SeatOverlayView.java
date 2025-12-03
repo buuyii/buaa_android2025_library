@@ -6,7 +6,6 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import androidx.annotation.Nullable;
@@ -14,6 +13,7 @@ import com.github.chrisbanes.photoview.PhotoView;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class SeatOverlayView extends View {
 
@@ -40,65 +40,85 @@ public class SeatOverlayView extends View {
     // -- View State --
     private List<Seat> seats = new ArrayList<>();
     private final Paint seatPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private PhotoView photoView;
+    private Seat selectedSeat = null;
 
     // -- Configuration --
     private final float seatBlockSize = 20f;
     private final float clickPadding = 10f;
+    private final float seatNumberTextSize = 12f;
 
     // -- Edit & Drag State --
     private boolean isEditMode = false;
     private Seat seatBeingDragged = null;
-    private float dragOffsetX, dragOffsetY;
 
     public SeatOverlayView(Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
+        textPaint.setColor(Color.WHITE);
+        textPaint.setTextAlign(Paint.Align.CENTER);
     }
 
     public void setSeats(List<Seat> seatList) {
         this.seats = seatList;
+        this.selectedSeat = null;
+        invalidate();
+    }
+
+    public void setSelectedSeat(Seat seat) {
+        this.selectedSeat = seat;
         invalidate();
     }
 
     public void bindPhotoView(PhotoView pv) {
         this.photoView = pv;
-        // Redraw overlay when the background image's matrix changes (zoom/pan)
         pv.setOnMatrixChangeListener(rect -> invalidate());
     }
 
     public void setEditMode(boolean isEditMode) {
         this.isEditMode = isEditMode;
-        // Disable the parent PhotoView's touch interception when in edit mode
-        photoView.setZoomable(!isEditMode);
-        invalidate(); // Redraw to show edit mode visuals if any
+        if (photoView != null) {
+            photoView.setZoomable(!isEditMode);
+        }
+        invalidate();
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if (photoView == null || seats == null) return;
+        if (photoView == null || seats == null || photoView.getDisplayRect() == null) return;
 
-        final RectF rect = photoView.getDisplayRect();
-        if (rect == null) return;
+        final RectF viewRect = photoView.getDisplayRect();
+        final float scale = photoView.getScale();
 
         for (Seat seat : seats) {
-            float x = rect.left + seat.relativeX * rect.width();
-            float y = rect.top + seat.relativeY * rect.height();
+            float x = viewRect.left + seat.relativeX * viewRect.width();
+            float y = viewRect.top + seat.relativeY * viewRect.height();
+            float halfSize = (seatBlockSize / 2f) * scale;
 
-            // Set color based on availability
-            seatPaint.setColor(seat.isAvailable() ? Color.GREEN : Color.RED);
-            // Add a visual indicator for edit mode (e.g., slight transparency)
+            // Set color based on availability and selection
+            if (selectedSeat != null && Objects.equals(seat.id, selectedSeat.id)) {
+                seatPaint.setColor(Color.GREEN); // Currently selected
+            } else if (seat.isAvailable()) {
+                seatPaint.setColor(Color.BLUE);  // Available
+            } else {
+                seatPaint.setColor(Color.RED);   // Occupied
+            }
+
             seatPaint.setAlpha(isEditMode ? 200 : 255);
-
-            float halfSize = (seatBlockSize / 2f) * photoView.getScale();
             canvas.drawRect(x - halfSize, y - halfSize, x + halfSize, y + halfSize, seatPaint);
+
+            // Draw seat number
+            textPaint.setTextSize(seatNumberTextSize * scale);
+            float textY = y - ((textPaint.descent() + textPaint.ascent()) / 2f); // Center vertically
+            canvas.drawText(String.valueOf(seat.seatNumber), x, textY, textPaint);
         }
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (seats == null || seats.isEmpty()) {
-            return false; // No seats, do nothing
+        if (seats == null || seats.isEmpty() || photoView == null) {
+            return false;
         }
 
         if (isEditMode) {
@@ -109,15 +129,13 @@ public class SeatOverlayView extends View {
     }
 
     private boolean handleNormalModeTouch(MotionEvent event) {
-        // Standard click handling
         if (event.getAction() == MotionEvent.ACTION_UP) {
             Seat clickedSeat = findSeatAt(event.getX(), event.getY());
-            if (clickedSeat != null && clickedSeat.isAvailable() && clickListener != null) {
+            if (clickedSeat != null && clickListener != null) {
                 clickListener.onSeatClicked(clickedSeat);
-                return true; // Consume the event
+                return true;
             }
         }
-        // We return true on ACTION_DOWN if a seat is under the press, which allows ACTION_UP to be received.
         return event.getAction() == MotionEvent.ACTION_DOWN && findSeatAt(event.getX(), event.getY()) != null;
     }
 
@@ -125,26 +143,20 @@ public class SeatOverlayView extends View {
         switch (event.getAction()) {
             case MotionEvent.ACTION_DOWN:
                 seatBeingDragged = findSeatAt(event.getX(), event.getY());
-                if (seatBeingDragged != null) {
-                    // When dragging starts, we are interested in handling the move.
-                    return true;
-                }
-                return false; // No seat found, let other views handle it.
+                return seatBeingDragged != null;
 
             case MotionEvent.ACTION_MOVE:
                 if (seatBeingDragged != null) {
                     RectF rect = photoView.getDisplayRect();
                     if (rect == null || rect.width() == 0 || rect.height() == 0) break;
 
-                    // Convert screen touch coordinates to relative coordinates within the drawable
                     float relativeX = (event.getX() - rect.left) / rect.width();
                     float relativeY = (event.getY() - rect.top) / rect.height();
 
-                    // Update the seat's position, clamping to the [0, 1] bounds
                     seatBeingDragged.relativeX = Math.max(0f, Math.min(1f, relativeX));
                     seatBeingDragged.relativeY = Math.max(0f, Math.min(1f, relativeY));
 
-                    invalidate(); // Redraw the overlay to show the seat in its new position
+                    invalidate();
                     return true;
                 }
                 break;
@@ -152,11 +164,10 @@ public class SeatOverlayView extends View {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 if (seatBeingDragged != null) {
-                    // Fire the callback to notify that the seat has been moved to a new final position
                     if (moveListener != null) {
                         moveListener.onSeatMoved(seatBeingDragged);
                     }
-                    seatBeingDragged = null; // Reset dragging state
+                    seatBeingDragged = null;
                     return true;
                 }
                 break;
@@ -171,13 +182,11 @@ public class SeatOverlayView extends View {
 
         float scaledHalfSize = (seatBlockSize / 2f) * photoView.getScale() + clickPadding;
 
-        // Iterate backwards to prioritize seats drawn on top
         for (int i = seats.size() - 1; i >= 0; i--) {
             Seat seat = seats.get(i);
             float seatCenterX = rect.left + seat.relativeX * rect.width();
             float seatCenterY = rect.top + seat.relativeY * rect.height();
 
-            // Create a touchable area rect for the seat
             RectF seatRect = new RectF(
                 seatCenterX - scaledHalfSize,
                 seatCenterY - scaledHalfSize,
@@ -189,6 +198,6 @@ public class SeatOverlayView extends View {
                 return seat;
             }
         }
-        return null; // No seat found at this position
+        return null;
     }
 }
